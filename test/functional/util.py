@@ -9,7 +9,7 @@ import yaml
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from cryptography.hazmat.primitives.serialization.base import Encoding, PublicFormat
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 from onionbalance.config_generator.config_generator import ConfigGenerator, parse_cmd_args
 
@@ -82,7 +82,7 @@ def create_test_config_file_v2(tmppath, private_key=None, instances=None):
 
 
 def create_test_config_file_v3(tmppath, instance_address):
-    args = parse_cmd_args().parse_args(['--hs-version', 'v3', '-n', '1', '--output', str(tmppath)])
+    args = parse_cmd_args().parse_args(['--hs-version', 'v3', '-n', '10', '--output', str(tmppath)])
     ConfigGenerator(args, False)
 
     config_path = tmppath.join('config.yaml')
