@@ -16,7 +16,7 @@ from stem.descriptor.hidden_service import HiddenServiceDescriptorV3
 import onionbalance
 from onionbalance.common import log
 from onionbalance.hs_v2 import util
-from onionbalance.hs_v3 import tor_ed25519, params
+from onionbalance.hs_v3 import tor_ed25519
 
 # Simplify the logging output for the command line tool
 logger = log.get_config_generator_logger()
