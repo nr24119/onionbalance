@@ -309,52 +309,119 @@ class OnionbalanceService(object):
         _, time_period_number = hashring.get_srv_and_time_period(is_first_desc)
         blinding_param = my_onionbalance.consensus.get_blinding_param(self._get_identity_pubkey_bytes(),
                                                                       time_period_number)
+        # calculate descriptor size without intro points
+        empty_intro_points = []
+        empty_desc = descriptor.OBDescriptor(self.onion_address, self.identity_priv_key,
+                                           blinding_param, empty_intro_points, is_first_desc)
 
+        available_space = self._calculate_space(empty_desc)
+
+        num_subdescriptors = self._calculate_needed_subdesc(intro_points, available_space)
+
+        subdescriptors = []
+
+        i = 0
+        while i < num_subdescriptors:
+            assigned_intro_points = self._assign_intro_points(intro_points, num_subdescriptors)
+            desc = self._create_subdescriptor(assigned_intro_points, num_subdescriptors, blinding_param,
+                                                     is_first_desc)
+            subdescriptors.append(desc)
+            logger.info(
+                "Service %s created %s descriptor of subdescriptor %d (%s intro points) (blinding param: %s) "
+                "(size: %s bytes). About to publish:",
+                self.onion_address, "first" if is_first_desc else "second", i+1,
+                len(desc.intro_set), blinding_param.hex(), len(str(desc.v3_desc)))
+            intro_points.pop(assigned_intro_points)
+            i += 1
+
+        i = 0
+        for desc in subdescriptors:
+            blinded_key = desc.get_blinded_key()
+            try:
+                responsible_hsdirs = hashring.get_responsible_hsdirs(blinded_key, is_first_desc, spread_store=i)
+            except hashring.EmptyHashRing:
+                logger.warning("Can't publish desc with no hash ring. Delaying...")
+                return
+
+            desc.set_last_publish_attempt_ts(datetime.datetime.utcnow())
+            logger.info("Uploading %s descriptor of subdescriptor %d for %s to %s",
+                        "first" if is_first_desc else "second", i,
+                        self.onion_address, responsible_hsdirs)
+
+            # Upload subdescriptor
+            self._upload_descriptor(my_onionbalance.controller.controller,
+                                    desc, responsible_hsdirs)
+
+            # It would be better to set last_upload_ts when an upload succeeds and
+            # not when an upload is just attempted. Unfortunately the HS_DESC #
+            # UPLOADED event does not provide information about the service and
+            # so it can't be used to determine when descriptor upload succeeds
+            desc.set_last_upload_ts(datetime.datetime.utcnow())
+            desc.set_responsible_hsdirs(responsible_hsdirs)
+
+            # Set the descriptor
+            if is_first_desc:
+                self.first_descriptor = desc
+            else:
+                self.second_descriptor = desc
+
+            i += 1
+
+    def _calculate_space(self, empty_desc):
+        """
+        calculate available space per subdescriptor
+        """
+        current_size = len(str(empty_desc))
+        logger.info(
+            "Size of descriptor without intro points is %s bytes", current_size)
+
+        available_space = params.MAX_DESCRIPTOR_SIZE - current_size
+        logger.info(
+            "We have %s bytes per subdescriptor to fit our intro points", available_space)
+        return available_space
+
+    def _calculate_needed_subdesc(self, intro_points, available_space):
+        """
+        calculate number of subdescriptors needed to fit all intro points
+        """
+        needed_space = len(str(intro_points))
+
+        logger.info("We need %s bytes of space to fit all intro points", needed_space)
+
+        num_subdescriptors = 1
+        while needed_space < available_space:
+            num_subdescriptors += 1
+            available_space *= num_subdescriptors
+
+        logger.info("We need %d subdescriptor(s) to fit all intro points", num_subdescriptors)
+
+        return num_subdescriptors
+
+    def _assign_intro_points(self, intro_points, num_subdescriptors):
+        """
+        assign intro points to current subdescriptor
+        """
+        index = len(intro_points) // num_subdescriptors
+        logger.info("This subdescriptor contains %d intro points", index)
+        assigned_intro_points = []
+        i = 0
+        while i < index:
+            assigned_intro_points.append(intro_points[i])
+            i += 1
+
+        return assigned_intro_points
+
+    def _create_subdescriptor(self, assigned_intro_points, blinding_param, is_first_desc):
+        """
+        create subdescriptor with assigned intro points
+        """
         try:
             desc = descriptor.OBDescriptor(self.onion_address, self.identity_priv_key,
-                                           blinding_param, intro_points, is_first_desc)
+                                               blinding_param, assigned_intro_points, is_first_desc)
         except descriptor.BadDescriptor:
             return
 
-        logger.info("Service %s created %s descriptor (%s intro points) (blinding param: %s) (size: %s bytes). About to publish:",
-                    self.onion_address, "first" if is_first_desc else "second",
-                    len(desc.intro_set), blinding_param.hex(), len(str(desc.v3_desc)))
-
-        # When we do a v3 HSPOST on the control port, Tor decodes the
-        # descriptor and extracts the blinded pubkey to be used when uploading
-        # the descriptor. So let's do the same to compute the responsible
-        # HSDirs:
-        blinded_key = desc.get_blinded_key()
-
-        # Calculate responsible HSDirs for our service
-        try:
-            responsible_hsdirs = hashring.get_responsible_hsdirs(blinded_key, is_first_desc)
-        except hashring.EmptyHashRing:
-            logger.warning("Can't publish desc with no hash ring. Delaying...")
-            return
-
-        desc.set_last_publish_attempt_ts(datetime.datetime.utcnow())
-
-        logger.info("Uploading %s descriptor for %s to %s",
-                    "first" if is_first_desc else "second",
-                    self.onion_address, responsible_hsdirs)
-
-        # Upload descriptor
-        self._upload_descriptor(my_onionbalance.controller.controller,
-                                desc, responsible_hsdirs)
-
-        # It would be better to set last_upload_ts when an upload succeeds and
-        # not when an upload is just attempted. Unfortunately the HS_DESC #
-        # UPLOADED event does not provide information about the service and
-        # so it can't be used to determine when descriptor upload succeeds
-        desc.set_last_upload_ts(datetime.datetime.utcnow())
-        desc.set_responsible_hsdirs(responsible_hsdirs)
-
-        # Set the descriptor
-        if is_first_desc:
-            self.first_descriptor = desc
-        else:
-            self.second_descriptor = desc
+        return desc
 
     def _upload_descriptor(self, controller, ob_desc, hsdirs):
         """
@@ -389,6 +456,7 @@ class OnionbalanceService(object):
 
 class NotEnoughIntros(Exception):
     pass
+
 
 class BadServiceInit(Exception):
     pass

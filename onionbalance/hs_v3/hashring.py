@@ -140,7 +140,7 @@ def _get_hidden_service_index(blinded_pubkey, replica_num, is_first_descriptor):
     return hs_index
 
 
-def get_responsible_hsdirs(blinded_pubkey, is_first_descriptor):
+def get_responsible_hsdirs(blinded_pubkey, is_first_descriptor, spread_store):
     """
     Return a list with the responsible HSDirs for a service with 'blinded_pubkey'.
 
