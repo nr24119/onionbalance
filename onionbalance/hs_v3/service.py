@@ -323,8 +323,7 @@ class OnionbalanceService(object):
         i = 0
         while i < num_subdescriptors:
             assigned_intro_points = self._assign_intro_points(intro_points, num_subdescriptors)
-            desc = self._create_subdescriptor(assigned_intro_points, num_subdescriptors, blinding_param,
-                                                     is_first_desc)
+            desc = self._create_subdescriptor(assigned_intro_points, blinding_param, is_first_desc)
             subdescriptors.append(desc)
             logger.info(
                 "Service %s created %s descriptor of subdescriptor %d (%s intro points) (blinding param: %s) "
