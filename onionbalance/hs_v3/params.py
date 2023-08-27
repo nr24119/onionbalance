@@ -40,9 +40,16 @@ INSTANCE_DESCRIPTOR_TOO_OLD_TESTNET = 20
 
 # Number of replicas per descriptor
 HSDIR_N_REPLICAS = 2
+
 # How many uploads per replica
 # [TODO: Get these from the consensus instead of hardcoded]
-HSDIR_SPREAD_STORE = 4
+# default value of HSDIR_SPREAD_FETCH of the client is currently 3 - uploading distinct distinct descriptors to more
+# HSDirs than that wouldn't be very effective as they couldn't be fetched
+# because of that HSDIR_SPREAD_STORE is set to 3 (instead of 4)
+HSDIR_SPREAD_STORE = 3
+
+# number of HSDirs that we can use to upload our descriptor(s)
+N_HSDIRS = HSDIR_N_REPLICAS * HSDIR_SPREAD_STORE
 
 # Max descriptor size (in bytes) (see hs_cache_get_max_descriptor_size() in
 # little-t-tor)

@@ -140,11 +140,17 @@ def _get_hidden_service_index(blinded_pubkey, replica_num, is_first_descriptor):
     return hs_index
 
 
-def get_responsible_hsdirs(blinded_pubkey, is_first_descriptor, spread_store):
+def get_responsible_hsdirs(blinded_pubkey, is_first_descriptor, ddm_failsafe):
     """
     Return a list with the responsible HSDirs for a service with 'blinded_pubkey'.
 
     The returned list is a list of fingerprints.
+
+    If ddm_failsafe == True: (Sub)descriptor(s) can be uploaded several times and therefore a list
+    of several fingerprints is returned
+
+    If ddm_failsafe == False: Because of the number of subdescriptors every subdescriptor can only be uploaded
+    a single time and therefore only a single fingerprint is returned
     """
     from onionbalance.hs_v3.onionbalance import my_onionbalance
 
