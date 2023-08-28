@@ -350,30 +350,27 @@ class OnionbalanceService(object):
             intro_points.pop(assigned_intro_points)
             i += 1
 
+        # ddm_failsafe means that we can afford to store a single descriptor on multiple HSDirs
+        # this is the case if the number of (sub)descriptors <= (HSDIR_N_REPLICAS * HSDIR_SPREAD_STORE) / 2
+        # Example: num_descriptors = 3, HSDIR_SPREAD_STORE = 3, HSDIR_N_REPLICAS = 2 -> we have 3*2 HSDirs (=N_HSDIRS) available
+        # our 3 descriptors can be distributed to 6 HSDirs, so every descriptor can be stored on 2 HSDirs
+        # now we need only to figure out the addresses of the 2 HSDirs the descriptor will be uploaded to
+        # it would probably be best to get the list of all usable addresses and then distribute to resp. descriptor
+        # disadvantage: if e. g. num_descriptors = 4 and N_HSDIRS = 6 we only upload 4 descriptors and leave 2 HSDirs
+        # without descriptor
+
         ddm_failsafe = self._load_failsafe_param(num_descriptors)
 
-        i = 0
-        for desc in descriptors:
-            blinded_key = desc.get_blinded_key()
-            try:
-                responsible_hsdirs = hashring.get_responsible_hsdirs(blinded_key, is_first_desc, ddm_failsafe)
-            except hashring.EmptyHashRing:
-                logger.warning("Can't publish desc with no hash ring. Delaying...")
-                return
+        responsible_hsdirs = self._get_responsible_hsdirs(desc, is_first_desc)
 
-            desc.set_last_publish_attempt_ts(datetime.datetime.utcnow())
-            if ddm:
-                logger.info("Uploading %s descriptor of subdescriptor %d for %s to %s",
-                           "first" if is_first_desc else "second", i+1,
-                           self.onion_address, responsible_hsdirs)
-            else:
-                logger.info("Uploading %s descriptor for %s to %s",
-                            "first" if is_first_desc else "second",
-                            self.onion_address, responsible_hsdirs)
+        # Or do all descriptors successively?
 
             # Upload (sub)descriptor
-            self._upload_descriptor(my_onionbalance.controller.controller,
-                                    desc, responsible_hsdirs)
+            for desc in descriptors:
+                if ddm_failsafe:
+                    desc_hs
+                    self._upload_descriptor(my_onionbalance.controller.controller,
+                                            desc, responsible_hsdirs[i])
 
             # It would be better to set last_upload_ts when an upload succeeds and
             # not when an upload is just attempted. Unfortunately the HS_DESC #
@@ -382,13 +379,24 @@ class OnionbalanceService(object):
             desc.set_last_upload_ts(datetime.datetime.utcnow())
             desc.set_responsible_hsdirs(responsible_hsdirs)
 
-            # Set the descriptor
-            if is_first_desc:
-                self.first_descriptor = desc
-            else:
-                self.second_descriptor = desc
+        # Set the descriptor
+        if is_first_desc:
+            self.first_descriptor = desc
+        else:
+            self.second_descriptor = desc
 
-            i += 1
+    def _get_responsible_hsdirs(self, desc, is_first_desc):
+        """
+        return list of responsible HSDirs to upload our (sub)descriptor(s) to
+        """
+        blinded_key = desc.get_blinded_key()
+        try:
+            responsible_hsdirs = hashring.get_responsible_hsdirs(blinded_key, is_first_desc)
+        except hashring.EmptyHashRing:
+            logger.warning("Can't publish desc with no hash ring. Delaying...")
+            return
+
+        return responsible_hsdirs
 
     def _calculate_space(self, empty_desc):
         """
@@ -446,11 +454,22 @@ class OnionbalanceService(object):
 
         return desc
 
-    def _upload_descriptor(self, controller, ob_desc, hsdirs, num_subdescriptor):
+    def _upload_descriptor(self, controller, ob_desc, hsdirs, num_descriptors):
         """
         Convenience method to upload a (sub)descriptor
         Handle some error checking and logging inside the Service class
         """
+
+        desc.set_last_publish_attempt_ts(datetime.datetime.utcnow())
+        if ddm:
+            logger.info("Uploading %s descriptor of subdescriptor %d for %s to %s",
+                        "first" if is_first_desc else "second", i + 1,
+                        self.onion_address, responsible_hsdirs)
+        else:
+            logger.info("Uploading %s descriptor for %s to %s",
+                        "first" if is_first_desc else "second",
+                        self.onion_address, responsible_hsdirs)
+
         if hsdirs and not isinstance(hsdirs, list):
             hsdirs = [hsdirs]
 
@@ -464,11 +483,11 @@ class OnionbalanceService(object):
             except stem.SocketClosed:
                 logger.error("Error uploading descriptor %d for service "
                              "%s.onion. Control port socket is closed.",
-                             num_subdescriptor, self.onion_address)
+                             num_descriptors, self.onion_address)
                 onionbalance.common.util.reauthenticate(controller, logger)
             except stem.ControllerError:
                 logger.exception("Error uploading descriptor %d for service "
-                                 "%s.onion.", num_subdescriptor, self.onion_address)
+                                 "%s.onion.", num_descriptors, self.onion_address)
                 break
 
     def _get_identity_pubkey_bytes(self):
@@ -478,7 +497,7 @@ class OnionbalanceService(object):
 
     def _load_failsafe_param(self, num_descriptors):
         """
-        determine if we can afford to upload (sub)descriptor(s) several times
+        determine if we can afford to upload (sub)descriptor(s) multiple times
         depending on the number of needed descriptors and the number of available HSDirs
         """
         if params.N_HSDIRS < num_descriptors:
