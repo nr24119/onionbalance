@@ -347,7 +347,8 @@ class OnionbalanceService(object):
                     "(size: %s bytes). About to publish:",
                     self.onion_address, "first" if is_first_desc else "second",
                     len(desc.intro_set), blinding_param.hex(), len(str(desc.v3_desc)))
-            intro_points.pop(assigned_intro_points)
+                while len(assigned_intro_points) > 0:
+                    intro_points.remove(assigned_intro_points)
             i += 1
 
         # ddm_failsafe means that we can afford to store a single descriptor on multiple HSDirs
@@ -361,16 +362,24 @@ class OnionbalanceService(object):
 
         ddm_failsafe = self._load_failsafe_param(num_descriptors)
 
-        responsible_hsdirs = self._get_responsible_hsdirs(desc, is_first_desc)
+        # since all our descriptor have the same public key and are uploaded at the same time the responsible hsdirs
+        # are the same for all of them
+        try:
+            responsible_hsdirs = self._get_responsible_hsdirs(descriptors[0], is_first_desc)
+        except descriptor.BadDescriptor:
+            return
 
-        # Or do all descriptors successively?
+        # go through every hsdir in list and assign to descriptor
+        i = 0
+        while len(responsible_hsdirs) > 0:
+            descriptors[i].set_responsible_hsdirs(responsible_hsdirs[i])
+            responsible_hsdirs.pop(0)
+            i += 1
 
-            # Upload (sub)descriptor
-            for desc in descriptors:
-                if ddm_failsafe:
-                    desc_hs
-                    self._upload_descriptor(my_onionbalance.controller.controller,
-                                            desc, responsible_hsdirs[i])
+        # Upload (sub)descriptor
+        for desc in descriptors:
+            i = 0
+            self._upload_descriptor(my_onionbalance.controller.controller, desc, is_first_desc, desc.responsible_hsdirs, ddm, i)
 
             # It would be better to set last_upload_ts when an upload succeeds and
             # not when an upload is just attempted. Unfortunately the HS_DESC #
@@ -379,11 +388,11 @@ class OnionbalanceService(object):
             desc.set_last_upload_ts(datetime.datetime.utcnow())
             desc.set_responsible_hsdirs(responsible_hsdirs)
 
-        # Set the descriptor
-        if is_first_desc:
-            self.first_descriptor = desc
-        else:
-            self.second_descriptor = desc
+            # Set the descriptor
+            if is_first_desc:
+                self.first_descriptor = desc
+            else:
+                self.second_descriptor = desc
 
     def _get_responsible_hsdirs(self, desc, is_first_desc):
         """
@@ -428,11 +437,11 @@ class OnionbalanceService(object):
 
         return num_descriptors
 
-    def _assign_intro_points(self, intro_points, num_subdescriptors):
+    def _assign_intro_points(self, intro_points, num_descriptors):
         """
         assign intro points to current (sub)descriptor
         """
-        index = len(intro_points) // num_subdescriptors
+        index = len(intro_points) // num_descriptors
         logger.info("This descriptor contains %d intro points", index)
         assigned_intro_points = []
         i = 0
@@ -447,28 +456,28 @@ class OnionbalanceService(object):
         create (sub)descriptor with assigned intro points
         """
         try:
-            desc = descriptor.OBDescriptor(self.onion_address, self.identity_priv_key,
-                                               blinding_param, assigned_intro_points, is_first_desc)
+            desc = descriptor.OBDescriptor(self.onion_address, self.identity_priv_key, blinding_param,
+                                           assigned_intro_points, is_first_desc)
         except descriptor.BadDescriptor:
             return
 
         return desc
 
-    def _upload_descriptor(self, controller, ob_desc, hsdirs, num_descriptors):
+    def _upload_descriptor(self, controller, ob_desc, is_first_desc, hsdirs, ddm, index):
         """
         Convenience method to upload a (sub)descriptor
         Handle some error checking and logging inside the Service class
         """
 
-        desc.set_last_publish_attempt_ts(datetime.datetime.utcnow())
+        ob_desc.set_last_publish_attempt_ts(datetime.datetime.utcnow())
         if ddm:
             logger.info("Uploading %s descriptor of subdescriptor %d for %s to %s",
-                        "first" if is_first_desc else "second", i + 1,
-                        self.onion_address, responsible_hsdirs)
+                        "first" if is_first_desc else "second", index + 1,
+                        self.onion_address, hsdirs)
         else:
             logger.info("Uploading %s descriptor for %s to %s",
                         "first" if is_first_desc else "second",
-                        self.onion_address, responsible_hsdirs)
+                        self.onion_address, hsdirs)
 
         if hsdirs and not isinstance(hsdirs, list):
             hsdirs = [hsdirs]
@@ -483,11 +492,12 @@ class OnionbalanceService(object):
             except stem.SocketClosed:
                 logger.error("Error uploading descriptor %d for service "
                              "%s.onion. Control port socket is closed.",
-                             num_descriptors, self.onion_address)
+                             index + 1, self.onion_address)
                 onionbalance.common.util.reauthenticate(controller, logger)
+
             except stem.ControllerError:
                 logger.exception("Error uploading descriptor %d for service "
-                                 "%s.onion.", num_descriptors, self.onion_address)
+                                 "%s.onion.", index + 1, self.onion_address)
                 break
 
     def _get_identity_pubkey_bytes(self):
