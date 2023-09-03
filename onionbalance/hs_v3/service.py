@@ -332,6 +332,7 @@ class OnionbalanceService(object):
 
         i = 0
         while i < num_descriptors:
+            # now assign intro points and create our (sub)descriptor
             assigned_intro_points = self._assign_intro_points(intro_points, num_descriptors)
             desc = self._create_descriptor(assigned_intro_points, blinding_param, is_first_desc)
             descriptors.append(desc)
@@ -426,12 +427,14 @@ class OnionbalanceService(object):
         """
         needed_space = len(str(intro_points))
 
-        logger.info("We need %s bytes of space to fit all intro points", needed_space)
+        logger.info("We need %s bytes of space to fit all intro points (have %s)", needed_space, available_space)
 
-        num_descriptors = 1
-        while needed_space < available_space:
+        num_descriptors = 0
+        space = 0
+        while needed_space > space:
             num_descriptors += 1
-            available_space *= num_descriptors
+            space = num_descriptors * available_space
+            print(space)
 
         logger.info("We need %d descriptor(s) to fit all intro points", num_descriptors)
 
