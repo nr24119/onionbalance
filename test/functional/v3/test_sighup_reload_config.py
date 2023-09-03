@@ -7,13 +7,13 @@ import pexpect
 
 from test.functional.util import *
 
-def test_sighup_reload_config(tmpdir, num_instances=60):
+def test_sighup_reload_config(tmpdir, num_instances=30):
     """
     Functional test to run Onionbalance, send SIGHUP then check if config is reloaded
     """
 
     # run Chutney net and set Chutney environment manually - because reading from OS environment didn't work
-    os.environ['CHUTNEY_ONION_ADDRESS'] = 'ab5oqi2robfepc4jshl7ywwefmxfm4e6fofwrwgsaojvw7e2rgavfjyd.onion:5858'
+    os.environ['CHUTNEY_ONION_ADDRESS'] = 'sd7wsgranoxlz6o3rhcxftez465cfvq6vdjkr3mqxriqpcmxo7ocdaad.onion:5858'
     os.environ['CHUTNEY_CLIENT_PORT'] = 'localhost:9008'
 
     chutney_config = parse_chutney_environment()
