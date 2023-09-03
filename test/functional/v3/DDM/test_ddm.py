@@ -48,7 +48,11 @@ class TestDDMService(unittest.TestCase):
         "3434343434343434343434343434343434343434" ]
         available_space = OnionbalanceService._calculate_space(mock_OnionbalanceService, empty_desc)
         print(available_space)
-        assert available_space == 49648
+
+        try:
+            assert available_space == 49648
+        except AssertionError:
+            raise
 
     @mock.patch('onionbalance.hs_v3.service.OnionbalanceService')
     def test_calculate_desc(self, mock_OnionbalanceService):
@@ -60,8 +64,10 @@ class TestDDMService(unittest.TestCase):
 
         num_descriptors = OnionbalanceService._calculate_needed_desc(mock_OnionbalanceService, self.intro_points, available_space)
         print(num_descriptors)
-
-        assert num_descriptors*available_space > len(str(self.intro_points))
+        try:
+            assert num_descriptors*available_space > len(str(self.intro_points))
+        except AssertionError:
+            raise
 
     @mock.patch('onionbalance.hs_v3.service.OnionbalanceService')
     def test_assign_desc(self, mock_OnionbalanceService):
@@ -79,6 +85,7 @@ class TestDDMService(unittest.TestCase):
         i = 0
         while i < num_descriptors:
             assigned_intro_points = OnionbalanceService._assign_intro_points(mock_OnionbalanceService, self.intro_points, num_descriptors)
+            assert len(str(assigned_intro_points)) == len(str(self.intro_points)) // 2
             desc = OnionbalanceService._create_descriptor(mock_OnionbalanceService, assigned_intro_points, self.blinding_param, self.is_first_desc)
             descriptors.append(desc)
             if ddm:
