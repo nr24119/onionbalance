@@ -328,29 +328,8 @@ class OnionbalanceService(object):
         else:
             ddm = False
 
-        descriptors = []
+        descriptors = self._create_descriptors(intro_points, num_descriptors, ddm, blinding_param, is_first_desc)
 
-        i = 0
-        while i < num_descriptors:
-            # now assign intro points and create our (sub)descriptor
-            assigned_intro_points = self._assign_intro_points(intro_points, num_descriptors)
-            desc = self._create_descriptor(assigned_intro_points, blinding_param, is_first_desc)
-            descriptors.append(desc)
-            if ddm:
-                logger.info(
-                    "Service %s created %s descriptor of subdescriptor %d (%s intro points) (blinding param: %s) "
-                    "(size: %s bytes). About to publish:",
-                    self.onion_address, "first" if is_first_desc else "second", i + 1,
-                    len(desc.intro_set), blinding_param.hex(), len(str(desc.v3_desc)))
-            else:
-                logger.info(
-                    "Service %s created %s descriptor (%s intro points) (blinding param: %s) "
-                    "(size: %s bytes). About to publish:",
-                    self.onion_address, "first" if is_first_desc else "second",
-                    len(desc.intro_set), blinding_param.hex(), len(str(desc.v3_desc)))
-                while len(assigned_intro_points) > 0:
-                    intro_points.remove(assigned_intro_points)
-            i += 1
 
         # ddm_failsafe means that we can afford to store a single descriptor on multiple HSDirs
         # this is the case if the number of (sub)descriptors <= (HSDIR_N_REPLICAS * HSDIR_SPREAD_STORE) / 2
@@ -440,31 +419,47 @@ class OnionbalanceService(object):
 
         return num_descriptors
 
-    def _assign_intro_points(self, intro_points, num_descriptors):
+    def _create_descriptors(self, intro_points, num_descriptors, ddm, blinding_param, is_first_desc):
         """
-        assign intro points to current (sub)descriptor
+        create (sub)descriptor(s) with assigned intro points
         """
+        descriptors = []
+        # index needed for assigning intro points to descriptor
         index = len(intro_points) // num_descriptors
-        logger.info("This descriptor contains %d intro points", index)
-        assigned_intro_points = []
         i = 0
-        while i < index:
-            assigned_intro_points.append(intro_points[i])
+        while i < num_descriptors:
+            # now assign intro points and create (sub)descriptor
+            assigned_intro_points = []
+            j = 0
+            while j <= index:
+                if len(intro_points) > 0:
+                    assigned_intro_points.append(intro_points[0])
+                    intro_points.pop(0)
+                    logger.info("Assigned intro point %d to (sub)descriptor %d.", j + 1, i + 1)
+                else:
+                    logger.info("Assigned all intro points to our descriptor(s).")
+                j += 1
+            try:
+                desc = descriptor.OBDescriptor(self.onion_address, self.identity_priv_key, blinding_param,
+                                               assigned_intro_points, is_first_desc)
+            except descriptor.BadDescriptor:
+                return
+            descriptors.append(desc)
+            if ddm:
+                logger.info(
+                    "Service %s created %s descriptor of subdescriptor %d (%s intro points) (blinding param: %s) "
+                    "(size: %s bytes). About to publish:",
+                    self.onion_address, "first" if is_first_desc else "second", i + 1,
+                    len(desc.intro_set), blinding_param.hex(), len(str(desc.v3_desc)))
+            else:
+                logger.info(
+                    "Service %s created %s descriptor (%s intro points) (blinding param: %s) "
+                    "(size: %s bytes). About to publish:",
+                    self.onion_address, "first" if is_first_desc else "second",
+                    len(desc.intro_set), blinding_param.hex(), len(str(desc.v3_desc)))
             i += 1
 
-        return assigned_intro_points
-
-    def _create_descriptor(self, assigned_intro_points, blinding_param, is_first_desc):
-        """
-        create (sub)descriptor with assigned intro points
-        """
-        try:
-            desc = descriptor.OBDescriptor(self.onion_address, self.identity_priv_key, blinding_param,
-                                           assigned_intro_points, is_first_desc)
-        except descriptor.BadDescriptor:
-            return
-
-        return desc
+        return descriptors
 
     def _upload_descriptor(self, controller, ob_desc, is_first_desc, hsdirs, ddm, index):
         """
