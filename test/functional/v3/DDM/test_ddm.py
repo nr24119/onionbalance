@@ -15,11 +15,6 @@ from onionbalance.hs_v3 import descriptor
 from onionbalance.hs_v3.service import OnionbalanceService, BadServiceInit
 
 
-class DummyService(object):
-    def __init__(self):
-        self.instances = []
-
-
 def get_random_string(length):
     # random string generator
     seq = string.printable
@@ -27,27 +22,50 @@ def get_random_string(length):
     return result_str
 
 
-class IntroPoint(object):
+class DummyIntroPoint(object):
     # create dummy class for testing, fill with fake data
     identifier = get_random_string(16)
+
+
+class DummyHSdir(object):
+    # create dummy class for testing, fill with fake data
+    hex_fingerprint = get_random_string(16)
 
 
 class DummyDesciptor(object):
     # create dummy class for testing, fill with fake data
     intro_points = None
-    signing_key = "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQ"
+    signing_key = get_random_string(16)
     inner_layer = "nnDtg7N8kRekv6dw32dRhCheNIBxCEo6JbVci"
     revision_counter = 1346
+    responsible_hsdirs = None
+
+    def set_responsible_hsdirs(self, responsible_hsdirs):
+        self.responsible_hsdirs = responsible_hsdirs
+
 
 class TestDDMService(unittest.TestCase):
+    # fill service with fake intro points, responsible hsdirs and descriptors
     intro_points = []
+    responsible_hsdirs = []
+    descriptors = []
     i = 0
     while i < 8:
-        intro_point = IntroPoint()
+        intro_point = DummyIntroPoint()
         intro_points.append(intro_point)
         i += 1
+    j = 0
+    while j < 8:
+        hsdir = DummyHSdir()
+        responsible_hsdirs.append(hsdir)
+        j += 1
+    z = 0
+    while z < 4:
+        desc = DummyDesciptor()
+        descriptors.append(desc)
+        z += 1
 
-    # fill with fake data
+    # fill service with fake descriptor data (mimic the first descriptor in descriptor-list)
     blinding_param = "3434343434343434343434343434343434343434"
     is_first_desc = True
     onion_address = 'bvy46sg2b5dokczabwv2pabqlrps3lppweyrebhat6gjieo2avojdvad.onion'
@@ -93,7 +111,6 @@ class TestDDMService(unittest.TestCase):
         test assignment of intro points to resp. descriptor
         """
         num_descriptors = 3
-        available_intro_points = self.intro_points
         if num_descriptors > 1:
             ddm = True
         else:
@@ -137,6 +154,64 @@ class TestDDMService(unittest.TestCase):
         print(descriptors)
         try:
             assert(len(self.intro_points) == 0 and len(descriptors) == num_descriptors)
+        except AssertionError:
+            raise
+
+    @mock.patch('onionbalance.hs_v3.service.OnionbalanceService')
+    def test_failsafe_param(self, mock_OnionbalanceService):
+        # Test with actual implementation
+        # default (params.py): HSDIR_N_REPLICAS = 2, HSDIR_SPREAD_STORE = 3
+        num_descriptors_a = 1
+        num_descriptors_b = 3
+        num_descriptors_c = 4
+        num_descriptors_d = 8
+        failsafe_param_a = OnionbalanceService._load_failsafe_param(mock_OnionbalanceService,
+                                                                    num_descriptors=num_descriptors_a)
+        failsafe_param_b = OnionbalanceService._load_failsafe_param(mock_OnionbalanceService,
+                                                                    num_descriptors=num_descriptors_b)
+        failsafe_param_c = OnionbalanceService._load_failsafe_param(mock_OnionbalanceService,
+                                                                    num_descriptors=num_descriptors_c)
+
+        try:
+            assert failsafe_param_a and failsafe_param_b and not failsafe_param_c
+        except AssertionError:
+            raise
+
+        try:
+            assert failsafe_param_a and failsafe_param_b and not failsafe_param_c
+        except AssertionError:
+            raise
+
+        self.assertRaises(BadServiceInit, OnionbalanceService._load_failsafe_param, mock_OnionbalanceService,
+                     num_descriptors=num_descriptors_d)
+
+    def test_assign_hsdirs(self):
+        """
+        test assignment of hsdir to our (sub)descriptor(s)
+        """
+        # slightly deviating from actual implementation for simplified testing
+        index = len(self.responsible_hsdirs) // len(self.descriptors)
+        i = 0
+        while i < len(self.descriptors):
+            assigned_hsdirs = []
+            j = 0
+            while j <= index:
+                if len(self.responsible_hsdirs) > 0:
+                    assigned_hsdirs.append(self.responsible_hsdirs[0])
+                    print("Assigned hsdir %s to (sub)descriptor %d.", self.responsible_hsdirs[j], i + 1)
+                    self.responsible_hsdirs.pop(0)
+                    j += 1
+                else:
+                    print("Assigned all hsdirs to our descriptor(s).")
+            try:
+                self.descriptors[i].set_responsible_hsdirs(assigned_hsdirs)
+                print("Assigned %d hsdirs to (sub)descriptor %d.", len(self.descriptors[i].responsible_hsdirs), i + 1)
+            except BadServiceInit:
+                return
+
+            i += 1
+        try:
+            self.descriptors[i].responsible_hsdirs
         except AssertionError:
             raise
 

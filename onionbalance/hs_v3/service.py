@@ -349,12 +349,11 @@ class OnionbalanceService(object):
         except descriptor.BadDescriptor:
             return
 
-        # go through every hsdir in list and assign to descriptor
-        i = 0
-        while len(responsible_hsdirs) > 0:
-            descriptors[i].set_responsible_hsdirs(responsible_hsdirs[i])
-            responsible_hsdirs.pop(0)
-            i += 1
+        try:
+            self._assign_responsible_hdsirs(responsible_hsdirs, descriptors)
+        except BadServiceInit:
+            return
+
 
         # Upload (sub)descriptor
         for desc in descriptors:
@@ -423,18 +422,19 @@ class OnionbalanceService(object):
         """
         create (sub)descriptor(s) with assigned intro points
         """
+        available_intro_points = intro_points.copy()
         descriptors = []
         # index needed for assigning intro points to descriptor
-        index = len(intro_points) // num_descriptors
+        index = len(available_intro_points) // num_descriptors
         i = 0
         while i < num_descriptors:
             # now assign intro points and create (sub)descriptor
             assigned_intro_points = []
             j = 0
             while j <= index:
-                if len(intro_points) > 0:
-                    assigned_intro_points.append(intro_points[0])
-                    intro_points.pop(0)
+                if len(available_intro_points) > 0:
+                    assigned_intro_points.append(available_intro_points[0])
+                    available_intro_points.pop(0)
                     logger.info("Assigned intro point %d to (sub)descriptor %d.", j + 1, i + 1)
                 else:
                     logger.info("Assigned all intro points to our descriptor(s).")
@@ -512,16 +512,50 @@ class OnionbalanceService(object):
             logger.error("We have not enough HSDirs configured to fit our %s (sub)descriptor(s).", num_descriptors)
             raise BadServiceInit
         elif params.N_HSDIRS // params.HSDIR_N_REPLICAS >= num_descriptors:
-            logger.info("We have enough HSDirs configured to fit our %d (sub)descriptor(s) (Failsafe = True).",
+            logger.info("We have enough HSDirs configured to fit our %d (sub)descriptor(s) multiple times "
+                        "(Failsafe = True).",
                         num_descriptors)
             return True
         elif params.N_HSDIRS // params.HSDIR_N_REPLICAS < num_descriptors:
-            logger.info("We have enough HSDirs configured to fit our %d subdescriptors (Failsafe = False).",
+            logger.info("We have enough HSDirs configured to fit our %d (sub)subdescriptor(s) once (Failsafe = False).",
                         num_descriptors)
             return False
         else:
             logger.error("Something went wrong. Maybe no N_HSDIRS set? Aborting.")
             raise BadServiceInit
+
+    def _assign_responsible_hdsirs(self, responsible_hsdirs, descriptors):
+        available_hsdirs = responsible_hsdirs.copy()
+        index = len(available_hsdirs) // len(descriptors)
+        i = 0
+        while i < len(descriptors):
+            # now assign hsdirs to our descriptor(s)
+            assigned_hsdirs = []
+            j = 0
+            while j <= index:
+                if len(available_hsdirs) > 0:
+                    assigned_hsdirs.append(available_hsdirs[0])
+                    logger.info("Assigned hsdir %s to (sub)descriptor %d.",
+                                available_hsdirs[j].hsdir_node.get_hex_fingerprint(), i + 1)
+                    available_hsdirs.pop(0)
+                else:
+                    logger.info("Assigned all hsdirs to our descriptor(s).")
+                j += 1
+            try:
+                descriptors[i].set_responsible_hsdirs(assigned_hsdirs)
+                logger.info("Assigned %d hsdirs to (sub)descriptor %d.",
+                            len(descriptors[i].responsible_hsdirs), i + 1)
+            except BadServiceInit:
+                return
+
+            i += 1
+
+        # go through every hsdir in list and assign to descriptor
+        #i = 0
+        #while len(responsible_hsdirs) > 0:
+            #descriptors[i].set_responsible_hsdirs(responsible_hsdirs[i])
+            #responsible_hsdirs.pop(0)
+            #i += 1
 
 
 class NotEnoughIntros(Exception):
