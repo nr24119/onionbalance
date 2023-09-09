@@ -132,6 +132,8 @@ class OnionbalanceService(object):
     def _intro_set_modified(self, is_first_desc):
         """
         Check if the introduction point set has changed since last publish.
+
+        The intro set for all descriptors should be the same so this will also work if we have more than one descriptor.
         """
         if is_first_desc:
             last_upload_ts = self.first_descriptor.last_upload_ts
@@ -167,6 +169,9 @@ class OnionbalanceService(object):
 
         If 'is_first_desc' is set then check the first descriptor of the
         service, otherwise the second.
+
+        Since all descriptors are uploaded at roughly the same time this should still work (although only the descriptor
+        uploaded last is used for calculating the descriptor age).
         """
         if is_first_desc:
             last_upload_ts = self.first_descriptor.last_upload_ts
@@ -188,6 +193,8 @@ class OnionbalanceService(object):
         """
         Return True if the HSDir has changed between the last upload of this
         descriptor and the current state of things
+
+        Since we have the same set of hsdirs for every descriptor this also works in the case of several descriptors.
         """
         from onionbalance.hs_v3.onionbalance import my_onionbalance
 
@@ -332,15 +339,9 @@ class OnionbalanceService(object):
 
 
         # ddm_failsafe means that we can afford to store a single descriptor on multiple HSDirs
-        # this is the case if the number of (sub)descriptors <= (HSDIR_N_REPLICAS * HSDIR_SPREAD_STORE) / 2
-        # Example: num_descriptors = 3, HSDIR_SPREAD_STORE = 3, HSDIR_N_REPLICAS = 2 -> we have 3*2 HSDirs (=N_HSDIRS) available
-        # our 3 descriptors can be distributed to 6 HSDirs, so every descriptor can be stored on 2 HSDirs
-        # now we need only to figure out the addresses of the 2 HSDirs the descriptor will be uploaded to
-        # it would probably be best to get the list of all usable addresses and then distribute to resp. descriptor
-        # disadvantage: if e. g. num_descriptors = 4 and N_HSDIRS = 6 we only upload 4 descriptors and leave 2 HSDirs
-        # without descriptor
+        # this is only for informational purposes
 
-        ddm_failsafe = self._load_failsafe_param(num_descriptors)
+        self._load_failsafe_param(num_descriptors)
 
         # since all our descriptor have the same public key and are uploaded at the same time the responsible hsdirs
         # are the same for all of them
@@ -354,11 +355,11 @@ class OnionbalanceService(object):
         except BadServiceInit:
             return
 
-
-        # Upload (sub)descriptor
+        # Upload descriptor
         for desc in descriptors:
             i = 0
-            self._upload_descriptor(my_onionbalance.controller.controller, desc, is_first_desc, desc.responsible_hsdirs, ddm, i)
+            self._upload_descriptor(my_onionbalance.controller.controller, desc, is_first_desc, desc.responsible_hsdirs,
+                                    ddm, i)
 
             # It would be better to set last_upload_ts when an upload succeeds and
             # not when an upload is just attempted. Unfortunately the HS_DESC #
@@ -368,14 +369,17 @@ class OnionbalanceService(object):
             desc.set_responsible_hsdirs(responsible_hsdirs)
 
             # Set the descriptor
+            # If we have more than one descriptor, self.first_descriptor and self.second_descriptor will always be the
+            # last one uploaded. Will this be a problem?
             if is_first_desc:
                 self.first_descriptor = desc
             else:
                 self.second_descriptor = desc
+            i += 1
 
     def _get_responsible_hsdirs(self, desc, is_first_desc):
         """
-        return list of responsible HSDirs to upload our (sub)descriptor(s) to
+        return list of responsible HSDirs to upload our descriptor(s) to
         """
         blinded_key = desc.get_blinded_key()
         try:
@@ -388,7 +392,7 @@ class OnionbalanceService(object):
 
     def _calculate_space(self, empty_desc):
         """
-        calculate available space per (sub)descriptor to fit intro points
+        calculate available space per descriptor to fit intro points
         """
         current_size = len(str(empty_desc))
         logger.info(
@@ -401,7 +405,7 @@ class OnionbalanceService(object):
 
     def _calculate_needed_desc(self, intro_points, available_space):
         """
-        calculate number of (sub)descriptors needed to fit all intro points
+        calculate number of descriptors needed to fit all intro points
         """
         needed_space = len(str(intro_points))
 
@@ -420,7 +424,7 @@ class OnionbalanceService(object):
 
     def _create_descriptors(self, intro_points, num_descriptors, ddm, blinding_param, is_first_desc):
         """
-        create (sub)descriptor(s) with assigned intro points
+        create descriptor(s) with assigned intro points
         """
         available_intro_points = intro_points.copy()
         descriptors = []
@@ -428,7 +432,7 @@ class OnionbalanceService(object):
         index = len(available_intro_points) // num_descriptors
         i = 0
         while i < num_descriptors:
-            # now assign intro points and create (sub)descriptor
+            # now assign intro points and create descriptor
             assigned_intro_points = []
             j = 0
             while j <= index:
@@ -438,6 +442,7 @@ class OnionbalanceService(object):
                     logger.info("Assigned intro point %d to (sub)descriptor %d.", j + 1, i + 1)
                 else:
                     logger.info("Assigned all intro points to our descriptor(s).")
+                    break
                 j += 1
             try:
                 desc = descriptor.OBDescriptor(self.onion_address, self.identity_priv_key, blinding_param,
@@ -463,7 +468,7 @@ class OnionbalanceService(object):
 
     def _upload_descriptor(self, controller, ob_desc, is_first_desc, hsdirs, ddm, index):
         """
-        Convenience method to upload a (sub)descriptor
+        Convenience method to upload a descriptor
         Handle some error checking and logging inside the Service class
         """
 
@@ -505,19 +510,18 @@ class OnionbalanceService(object):
 
     def _load_failsafe_param(self, num_descriptors):
         """
-        determine if we can afford to upload (sub)descriptor(s) multiple times
+        determine if we can afford to upload descriptor(s) multiple times
         depending on the number of needed descriptors and the number of available HSDirs
         """
         if params.N_HSDIRS < num_descriptors:
-            logger.error("We have not enough HSDirs configured to fit our %s (sub)descriptor(s).", num_descriptors)
+            logger.error("We have not enough HSDirs configured to fit our %s descriptor(s).", num_descriptors)
             raise BadServiceInit
         elif params.N_HSDIRS // params.HSDIR_N_REPLICAS >= num_descriptors:
-            logger.info("We have enough HSDirs configured to fit our %d (sub)descriptor(s) multiple times "
-                        "(Failsafe = True).",
+            logger.info("We have enough HSDirs configured to fit our %d descriptor(s) multiple times",
                         num_descriptors)
             return True
         elif params.N_HSDIRS // params.HSDIR_N_REPLICAS < num_descriptors:
-            logger.info("We have enough HSDirs configured to fit our %d (sub)subdescriptor(s) once (Failsafe = False).",
+            logger.info("We have enough HSDirs configured to fit our %d descriptor(s) once",
                         num_descriptors)
             return False
         else:
@@ -536,10 +540,11 @@ class OnionbalanceService(object):
                 if len(available_hsdirs) > 0:
                     assigned_hsdirs.append(available_hsdirs[0])
                     logger.info("Assigned hsdir %s to (sub)descriptor %d.",
-                                available_hsdirs[j].hsdir_node.get_hex_fingerprint(), i + 1)
+                                available_hsdirs[0].hsdir_node.get_hex_fingerprint(), i + 1)
                     available_hsdirs.pop(0)
                 else:
                     logger.info("Assigned all hsdirs to our descriptor(s).")
+                    break
                 j += 1
             try:
                 descriptors[i].set_responsible_hsdirs(assigned_hsdirs)
@@ -549,13 +554,6 @@ class OnionbalanceService(object):
                 return
 
             i += 1
-
-        # go through every hsdir in list and assign to descriptor
-        #i = 0
-        #while len(responsible_hsdirs) > 0:
-            #descriptors[i].set_responsible_hsdirs(responsible_hsdirs[i])
-            #responsible_hsdirs.pop(0)
-            #i += 1
 
 
 class NotEnoughIntros(Exception):

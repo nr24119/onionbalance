@@ -46,21 +46,22 @@ class DummyDesciptor(object):
 
 class TestDDMService(unittest.TestCase):
     # fill service with fake intro points, responsible hsdirs and descriptors
+    # deviating from actual implementation for testing purposes
     intro_points = []
     responsible_hsdirs = []
     descriptors = []
     i = 0
-    while i < 8:
+    while i < 80:
         intro_point = DummyIntroPoint()
         intro_points.append(intro_point)
         i += 1
     j = 0
-    while j < 8:
+    while j < 20:
         hsdir = DummyHSdir()
         responsible_hsdirs.append(hsdir)
         j += 1
     z = 0
-    while z < 4:
+    while z < 1:
         desc = DummyDesciptor()
         descriptors.append(desc)
         z += 1
@@ -99,8 +100,8 @@ class TestDDMService(unittest.TestCase):
         """
 
         available_space = 200
-        num_descriptors = OnionbalanceService._calculate_needed_desc(mock_OnionbalanceService, self.intro_points, available_space)
-        print(num_descriptors)
+        num_descriptors = OnionbalanceService._calculate_needed_desc(mock_OnionbalanceService, self.intro_points,
+                                                                     available_space)
         try:
             assert num_descriptors * available_space > len(str(self.intro_points))
         except AssertionError:
@@ -109,8 +110,9 @@ class TestDDMService(unittest.TestCase):
     def test_create_desc(self):
         """
         test assignment of intro points to resp. descriptor
+        number of intro points set in class
         """
-        num_descriptors = 3
+        num_descriptors = 6
         if num_descriptors > 1:
             ddm = True
         else:
@@ -130,6 +132,7 @@ class TestDDMService(unittest.TestCase):
                     print("Assigned intro point %d to (sub)descriptor %d.", j + 1, i + 1)
                 else:
                     print("Assigned all intro points to our descriptor(s).")
+                    break
                 j += 1
             try:
                 desc = "%s %s %s %d" % (self.onion_address, self.blinding_param, assigned_intro_points,
@@ -187,7 +190,8 @@ class TestDDMService(unittest.TestCase):
 
     def test_assign_hsdirs(self):
         """
-        test assignment of hsdir to our (sub)descriptor(s)
+        test assignment of hsdir to our descriptor(s)
+        number of hsdirs and descriptors is set in class
         """
         # slightly deviating from actual implementation for simplified testing
         index = len(self.responsible_hsdirs) // len(self.descriptors)
@@ -198,20 +202,21 @@ class TestDDMService(unittest.TestCase):
             while j <= index:
                 if len(self.responsible_hsdirs) > 0:
                     assigned_hsdirs.append(self.responsible_hsdirs[0])
-                    print("Assigned hsdir %s to (sub)descriptor %d.", self.responsible_hsdirs[j], i + 1)
+                    print("Assigned hsdir %s to (sub)descriptor %d.", self.responsible_hsdirs[0], i + 1)
                     self.responsible_hsdirs.pop(0)
-                    j += 1
                 else:
                     print("Assigned all hsdirs to our descriptor(s).")
+                    break
+                j += 1
             try:
                 self.descriptors[i].set_responsible_hsdirs(assigned_hsdirs)
                 print("Assigned %d hsdirs to (sub)descriptor %d.", len(self.descriptors[i].responsible_hsdirs), i + 1)
             except BadServiceInit:
                 return
-
             i += 1
+
         try:
-            self.descriptors[i].responsible_hsdirs
+            self.descriptors[0].responsible_hsdirs
         except AssertionError:
             raise
 
