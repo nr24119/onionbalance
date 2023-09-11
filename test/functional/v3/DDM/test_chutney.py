@@ -9,16 +9,17 @@ from test.functional.util import *
 
 def test_chutney(tmpdir, num_instances = 30):
     """
-    Functional test to run Onionbalance, send SIGHUP then check if config is reloaded
+    Functional test to run Onionbalance with Distinct Descriptor Mode, send SIGHUP then check if config is reloaded
     """
 
     # run Chutney net and set Chutney environment manually - because reading from OS environment didn't work
-    os.environ['CHUTNEY_ONION_ADDRESS'] = 'sd7wsgranoxlz6o3rhcxftez465cfvq6vdjkr3mqxriqpcmxo7ocdaad.onion:5858'
+    os.environ['CHUTNEY_ONION_ADDRESS'] = 'gpazawwakaznnixgwe6xdlb3bm4rnrroaivavw4gz324tq4ibiccgayd.onion:5858'
     os.environ['CHUTNEY_CLIENT_PORT'] = 'localhost:9008'
 
-    # collect all instances (onion addresses) from chutney: find */hidden_service/hostname -exec cat > all.txt {} \;
-    # set path here
-    instances_path = "/home/laura/Documents/chutney/net/nodes.1694361796/all.txt"
+    # collect all instances (onion addresses) from current chutney net (/chutney/net/nodes.169...):
+    # cat */hidden_service/hostname > /home/laura/Documents/all.txt
+    # set path to file here
+    instances_path = "/home/laura/Documents/all.txt"
 
     chutney_config = parse_chutney_environment()
 
@@ -36,7 +37,7 @@ def test_chutney(tmpdir, num_instances = 30):
     assert config_file_path
 
     # Start an Onionbalance server and monitor for correct output with pexpect
-    server = pexpect.spawn("onionbalance",
+    server = pexpect.spawn('./home/laura/onionbalance/onionbalance',
                             args=[
                                 '--hs-version', 'v3',
                                 '-i', chutney_config.get('client_ip'),
