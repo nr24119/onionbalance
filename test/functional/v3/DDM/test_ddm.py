@@ -1,16 +1,7 @@
-import base64
-import hashlib
-import os
 import random
 import string
-import struct
-
 import mock
 import unittest
-
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import serialization
-
 from onionbalance.hs_v3 import descriptor
 from onionbalance.hs_v3.service import OnionbalanceService, BadServiceInit
 

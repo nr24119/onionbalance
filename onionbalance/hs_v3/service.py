@@ -1,5 +1,6 @@
 import datetime
 import os
+from pympler import asizeof
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
@@ -17,7 +18,6 @@ from onionbalance.hs_v3 import params
 from onionbalance.hs_v3 import hashring
 from onionbalance.hs_v3 import descriptor
 from onionbalance.hs_v3 import tor_ed25519
-from onionbalance.hs_v3.descriptor import BadDescriptor
 
 logger = log.get_logger()
 
@@ -319,9 +319,11 @@ class OnionbalanceService(object):
                                                                       time_period_number)
         # calculate descriptor size without intro points
         empty_intro_points = []
+        desc = descriptor.OBDescriptor(self.onion_address, self.identity_priv_key, blinding_param,
+                                       empty_intro_points, is_first_desc)
         try:
-            empty_desc = descriptor.OBDescriptor(self.onion_address, self.identity_priv_key,
-                                           blinding_param, empty_intro_points, is_first_desc)
+            empty_desc = desc.get_v3_desc()
+            logger.info("Created empty descriptor.")
         except descriptor.BadDescriptor:
             return
 
@@ -338,13 +340,12 @@ class OnionbalanceService(object):
         descriptors = self._create_descriptors(intro_points, num_descriptors, ddm, blinding_param, is_first_desc)
 
 
-        # ddm_failsafe means that we can afford to store a single descriptor on multiple HSDirs
-        # this is only for informational purposes
+        # failsafe means that we can afford to store a single descriptor on multiple HSDirs
+        # this is currently only for informational purposes
+        failsafe = self._load_failsafe_param(num_descriptors)
 
-        self._load_failsafe_param(num_descriptors)
-
-        # since all our descriptor have the same public key and are uploaded at the same time the responsible hsdirs
-        # are the same for all of them
+        # since all our descriptors have the same public key and are uploaded at roughly the same time the responsible
+        # hsdirs are the same for all of them
         try:
             responsible_hsdirs = self._get_responsible_hsdirs(descriptors[0], is_first_desc)
         except descriptor.BadDescriptor:
@@ -407,7 +408,7 @@ class OnionbalanceService(object):
         """
         calculate number of descriptors needed to fit all intro points
         """
-        needed_space = len(str(intro_points))
+        needed_space = asizeof.asizeof(intro_points)
 
         logger.info("We need %s bytes of space to fit all intro points (have %s)", needed_space, available_space)
 
@@ -416,7 +417,6 @@ class OnionbalanceService(object):
         while needed_space > space:
             num_descriptors += 1
             space = num_descriptors * available_space
-            print(space)
 
         logger.info("We need %d descriptor(s) to fit all intro points", num_descriptors)
 
@@ -539,8 +539,7 @@ class OnionbalanceService(object):
             while j <= index:
                 if len(available_hsdirs) > 0:
                     assigned_hsdirs.append(available_hsdirs[0])
-                    logger.info("Assigned hsdir %s to (sub)descriptor %d.",
-                                available_hsdirs[0].hsdir_node.get_hex_fingerprint(), i + 1)
+                    logger.info("Assigned hsdir to (sub)descriptor %d.", i + 1)
                     available_hsdirs.pop(0)
                 else:
                     logger.info("Assigned all hsdirs to our descriptor(s).")

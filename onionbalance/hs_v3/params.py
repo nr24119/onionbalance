@@ -29,7 +29,7 @@ MAX_INSTANCES = 60
 # descriptors?
 # [TODO: This makes no attempt to hide the use of onionbalance. In the future we
 # should be smarter and sneakier here.]
-N_INTROS_PER_INSTANCE = 2
+N_INTROS_PER_INSTANCE = 3
 
 # If we last received a descriptor for this instance more than
 # INSTANCE_DESCRIPTOR_TOO_OLD seconds ago, consider the instance to be down.
