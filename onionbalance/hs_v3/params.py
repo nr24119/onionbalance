@@ -1,6 +1,6 @@
 import os
 
-# Parameters definining Onionbalance behavior
+# Parameters defining Onionbalance behavior
 
 # How long to wait for onionbalance to bootstrap before starting periodic
 # events (in seconds)

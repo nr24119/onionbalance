@@ -334,6 +334,7 @@ class OnionbalanceService(object):
         # set Distinct Descriptor Mode if more than one descriptor is needed to fit backend instances resp. intro points
         if num_descriptors > 1:
             ddm = True
+            logger.info("Running on Distinct Descriptor Mode.")
         else:
             ddm = False
 
@@ -356,9 +357,9 @@ class OnionbalanceService(object):
         except BadServiceInit:
             return
 
+        i = 0
         # Upload descriptor
         for desc in descriptors:
-            i = 0
             self._upload_descriptor(my_onionbalance.controller.controller, desc, is_first_desc, desc.responsible_hsdirs,
                                     ddm, i)
 
@@ -388,7 +389,7 @@ class OnionbalanceService(object):
         except hashring.EmptyHashRing:
             logger.warning("Can't publish desc with no hash ring. Delaying...")
             return
-
+        logger.info("We got %d responsible HSDirs.", len(responsible_hsdirs))
         return responsible_hsdirs
 
     def _calculate_space(self, empty_desc):
@@ -535,7 +536,7 @@ class OnionbalanceService(object):
         while i < len(descriptors):
             # now assign hsdirs to our descriptor(s)
             assigned_hsdirs = []
-            j = 0
+            j = 1
             while j <= index:
                 if len(available_hsdirs) > 0:
                     assigned_hsdirs.append(available_hsdirs[0])
