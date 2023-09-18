@@ -1,5 +1,8 @@
 import datetime
+import math
 import os
+import pickle
+
 from pympler import asizeof
 
 from cryptography.hazmat.primitives import serialization
@@ -401,27 +404,27 @@ class OnionbalanceService(object):
             "Size of descriptor without intro points is %s bytes", current_size)
 
         available_space = params.MAX_DESCRIPTOR_SIZE - current_size
-        logger.info(
-            "We have %s bytes per descriptor to fit our intro points", available_space)
         return available_space
 
     def _calculate_needed_desc(self, intro_points, available_space):
         """
         calculate number of descriptors needed to fit all intro points
         """
-        needed_space = asizeof.asizeof(intro_points)
 
-        logger.info("We need %s bytes of space to fit all intro points (have %s)", needed_space, available_space)
+        # keep that in case we need it in the future
+        needed_space = len(pickle.dumps(intro_points))
+        logger.info("We need around %s bytes of space for our intro_points (have %d per descriptor)", needed_space,
+                    available_space)
 
-        num_descriptors = 0
-        space = 0
-        while needed_space > space:
-            num_descriptors += 1
-            space = num_descriptors * available_space
+        num_descriptors = math.ceil(len(intro_points) / params.N_INTROS_PER_DESCRIPTOR)
 
-        logger.info("We need %d descriptor(s) to fit all intro points", num_descriptors)
-
-        return num_descriptors
+        if num_descriptors > params.N_HSDIRS:
+            logger.error("We need more descriptors than we have HSDirs. Please lower the number of instances e.g. "
+                         "intro points")
+            raise BadServiceInit
+        else:
+            logger.info("We need %d descriptor(s) to fit all intro points", num_descriptors)
+            return num_descriptors
 
     def _create_descriptors(self, intro_points, num_descriptors, ddm, blinding_param, is_first_desc):
         """
@@ -429,14 +432,13 @@ class OnionbalanceService(object):
         """
         available_intro_points = intro_points.copy()
         descriptors = []
-        # index needed for assigning intro points to descriptor
-        index = len(available_intro_points) // num_descriptors
+
         i = 0
         while i < num_descriptors:
             # now assign intro points and create descriptor
             assigned_intro_points = []
             j = 0
-            while j <= index:
+            while j < params.N_INTROS_PER_DESCRIPTOR:
                 if len(available_intro_points) > 0:
                     assigned_intro_points.append(available_intro_points[0])
                     available_intro_points.pop(0)

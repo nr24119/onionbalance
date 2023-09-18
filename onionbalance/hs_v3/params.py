@@ -31,6 +31,9 @@ MAX_INSTANCES = 60
 # should be smarter and sneakier here.]
 N_INTROS_PER_INSTANCE = 3
 
+# max number of intro points that a descriptor is allowed to contain
+N_INTROS_PER_DESCRIPTOR = 20
+
 # If we last received a descriptor for this instance more than
 # INSTANCE_DESCRIPTOR_TOO_OLD seconds ago, consider the instance to be down.
 INSTANCE_DESCRIPTOR_TOO_OLD = 60 * 60

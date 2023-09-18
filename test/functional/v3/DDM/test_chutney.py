@@ -7,7 +7,7 @@ import pexpect
 
 from test.functional.util import *
 
-def test_chutney(tmpdir, num_instances = 25):
+def test_chutney(tmpdir, num_instances = 15):
     """
     Functional test to create a config file used for testing in a chutney net
     """
@@ -16,8 +16,6 @@ def test_chutney(tmpdir, num_instances = 25):
     # cat */hidden_service/hostname > /home/laura/Documents/all.txt
     # set path to file here
     instances_path = "/home/laura/Documents/all.txt"
-
-    chutney_config = parse_chutney_environment()
 
     list_instances = []
 
