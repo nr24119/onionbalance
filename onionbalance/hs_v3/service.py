@@ -550,7 +550,7 @@ class OnionbalanceService(object):
                 j += 1
             try:
                 descriptors[i].set_responsible_hsdirs(assigned_hsdirs)
-                logger.info("Assigned %d hsdirs to (sub)descriptor %d.",
+                logger.info("Assigned %d hsdir(s) to (sub)descriptor %d.",
                             len(descriptors[i].responsible_hsdirs), i + 1)
             except BadServiceInit:
                 return
