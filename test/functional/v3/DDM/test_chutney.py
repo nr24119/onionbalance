@@ -7,9 +7,9 @@ import pexpect
 
 from test.functional.util import *
 
-def test_chutney(tmpdir, num_instances = 15):
+def test_chutney(tmpdir, num_instances = 60):
     """
-    Functional test to create a config file used for testing in a chutney net
+    functional test to create a config file used for testing in a chutney net
     """
 
     # collect all instances (onion addresses) from current chutney net (/chutney/net/nodes.169...):
@@ -31,7 +31,7 @@ def test_chutney(tmpdir, num_instances = 15):
     print(config_file_path)
     assert config_file_path
 
-    # Manually install and start Onionbalance in terminal
-    # udo python3 setup.py install
+    # Manually set config-path, install and start Onionbalance in terminal
+    # sudo python3 setup.py install
     # ./onionbalance.py --hs-version v3 -i 127.0.0.1 -p 8008 -c /tmp/pytest-of-laura/pytest-2/test_chutney0/config.yaml -v debug --is-testnet
-    # logger.info('http://127.0.0.1' + ':' + '7000' + '/tor/hs/3' + key)
+

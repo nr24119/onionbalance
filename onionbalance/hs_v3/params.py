@@ -29,7 +29,7 @@ MAX_INSTANCES = 60
 # descriptors?
 # [TODO: This makes no attempt to hide the use of onionbalance. In the future we
 # should be smarter and sneakier here.]
-N_INTROS_PER_INSTANCE = 3
+N_INTROS_PER_INSTANCE = 2
 
 # max number of intro points that a descriptor is allowed to contain
 N_INTROS_PER_DESCRIPTOR = 20
@@ -46,7 +46,7 @@ HSDIR_N_REPLICAS = 2
 
 # How many uploads per replica
 # [TODO: Get these from the consensus instead of hardcoded]
-# default value of HSDIR_SPREAD_FETCH of the client is currently 3 - uploading distinct distinct descriptors to more
+# default value of HSDIR_SPREAD_FETCH of the client is currently 3 - uploading distinct descriptors to more
 # HSDirs than that wouldn't be very effective as they couldn't be fetched
 # because of that HSDIR_SPREAD_STORE is set to 3 (instead of 4)
 HSDIR_SPREAD_STORE = 3

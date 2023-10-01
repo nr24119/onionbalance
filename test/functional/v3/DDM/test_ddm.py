@@ -1,9 +1,13 @@
+import math
+import os
 import random
 import string
 import mock
 import unittest
-from onionbalance.hs_v3 import descriptor
+from onionbalance.hs_v3 import descriptor, params
+from onionbalance.hs_v3.onionbalance import Onionbalance, ConfigError, logger
 from onionbalance.hs_v3.service import OnionbalanceService, BadServiceInit
+from test.functional.util import parse_chutney_environment, random_onionv3_address, create_test_config_file_v3
 
 
 def get_random_string(length):
@@ -13,18 +17,20 @@ def get_random_string(length):
     return result_str
 
 
+# ------ Dummy-classes do not represent actual implementation and are only used for simplified testing. -------
+
 class DummyIntroPoint(object):
-    # create dummy class for testing, fill with fake data
+    # dummy class for testing, fill with fake intro point data
     identifier = get_random_string(16)
 
 
 class DummyHSdir(object):
-    # create dummy class for testing, fill with fake data
+    # dummy class for testing, fill with fake hsdir data
     hex_fingerprint = get_random_string(16)
 
 
-class DummyDesciptor(object):
-    # create dummy class for testing, fill with fake data
+class DummyDescriptor(object):
+    # dummy class for testing, fill with fake descriptor data
     intro_points = None
     signing_key = get_random_string(16)
     inner_layer = "nnDtg7N8kRekv6dw32dRhCheNIBxCEo6JbVci"
@@ -41,19 +47,25 @@ class TestDDMService(unittest.TestCase):
     intro_points = []
     responsible_hsdirs = []
     descriptors = []
+
+    # create intro points
     i = 0
     while i < 80:
         intro_point = DummyIntroPoint()
         intro_points.append(intro_point)
         i += 1
+
+    # create hsdirs
     j = 0
     while j < 20:
         hsdir = DummyHSdir()
         responsible_hsdirs.append(hsdir)
         j += 1
     z = 0
-    while z < 1:
-        desc = DummyDesciptor()
+
+    # create subdescriptors
+    while z < 10:
+        desc = DummyDescriptor()
         descriptors.append(desc)
         z += 1
 
@@ -65,7 +77,7 @@ class TestDDMService(unittest.TestCase):
     @mock.patch('onionbalance.hs_v3.service.OnionbalanceService')
     def test_calculate_space(self, mock_OnionbalanceService):
         """
-        test calculation of available space per descriptor
+        test calculation of available space per descriptor, test with actual implementation
         """
         empty_desc = [
         "D1D1D1D1D1D1D1D1D1D1D1D1D1D1D1D1D1D1D1D1",
@@ -87,23 +99,23 @@ class TestDDMService(unittest.TestCase):
     @mock.patch('onionbalance.hs_v3.service.OnionbalanceService')
     def test_calculate_desc(self, mock_OnionbalanceService):
         """
-        test calculation of number of needed descriptors
+        test calculation of number of needed descriptors, test with actual implementation
         """
-
         available_space = 200
         num_descriptors = OnionbalanceService._calculate_needed_desc(mock_OnionbalanceService, self.intro_points,
                                                                      available_space)
         try:
-            assert num_descriptors * available_space > len(str(self.intro_points))
+            assert num_descriptors == math.ceil(len(self.intro_points) / params.N_INTROS_PER_DESCRIPTOR)
         except AssertionError:
             raise
 
     def test_create_desc(self):
         """
         test assignment of intro points to resp. descriptor
-        number of intro points set in class
         """
         num_descriptors = 6
+        n_intros_per_descriptor = math.ceil(len(self.intro_points) / num_descriptors)
+
         if num_descriptors > 1:
             ddm = True
         else:
@@ -111,12 +123,11 @@ class TestDDMService(unittest.TestCase):
 
         descriptors = []
         # from here on slightly deviating from actual implementation for simplified testing
-        index = len(self.intro_points) // num_descriptors
         i = 0
         while i < num_descriptors:
             assigned_intro_points = []
             j = 0
-            while j <= index:
+            while j < n_intros_per_descriptor:
                 if len(self.intro_points) > 0:
                     assigned_intro_points.append(self.intro_points[0])
                     self.intro_points.pop(0)
@@ -153,7 +164,7 @@ class TestDDMService(unittest.TestCase):
 
     @mock.patch('onionbalance.hs_v3.service.OnionbalanceService')
     def test_failsafe_param(self, mock_OnionbalanceService):
-        # Test with actual implementation
+        # test functionality of added log message, test with actual implementation
         # default (params.py): HSDIR_N_REPLICAS = 2, HSDIR_SPREAD_STORE = 3
         num_descriptors_a = 1
         num_descriptors_b = 3
@@ -181,15 +192,15 @@ class TestDDMService(unittest.TestCase):
 
     def test_assign_hsdirs(self):
         """
-        test assignment of hsdir to our descriptor(s)
-        number of hsdirs and descriptors is set in class
+        test assignment of hsdir to our descriptor(s), test with actual implementation
         """
+
         # slightly deviating from actual implementation for simplified testing
         index = len(self.responsible_hsdirs) // len(self.descriptors)
         i = 0
         while i < len(self.descriptors):
             assigned_hsdirs = []
-            j = 0
+            j = 1
             while j <= index:
                 if len(self.responsible_hsdirs) > 0:
                     assigned_hsdirs.append(self.responsible_hsdirs[0])
@@ -201,7 +212,7 @@ class TestDDMService(unittest.TestCase):
                 j += 1
             try:
                 self.descriptors[i].set_responsible_hsdirs(assigned_hsdirs)
-                print("Assigned %d hsdirs to (sub)descriptor %d.", len(self.descriptors[i].responsible_hsdirs), i + 1)
+                print("Assigned %d hsdir(s) to (sub)descriptor %d.", len(self.descriptors[i].responsible_hsdirs), i + 1)
             except BadServiceInit:
                 return
             i += 1
@@ -212,6 +223,17 @@ class TestDDMService(unittest.TestCase):
             raise
 
 
-def test_load_onionbalance():
-    service = OnionbalanceService(config_path="/home/laura/Documents/test", service_config_data="config.yaml")
+    def test_too_may_instances(self, num_instances = params.MAX_INSTANCES+10):
+        """
+            test functionality of added log message
+        """
+        list_instances = []
+        i = 0
+        while i < num_instances:
+            list_instances.append(random_onionv3_address())
+            i += 1
 
+        with self.assertRaises(SystemExit):
+            self.assertRaises(logger.error, create_test_config_file_v3(tmppath="/home/laura/Documents/test/empty",
+                                                                  instance_address=list_instances,
+                                                                  num_instances=num_instances))

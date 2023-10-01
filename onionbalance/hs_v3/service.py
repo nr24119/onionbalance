@@ -2,9 +2,6 @@ import datetime
 import math
 import os
 import pickle
-
-from pympler import asizeof
-
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
 
@@ -345,7 +342,7 @@ class OnionbalanceService(object):
 
 
         # failsafe means that we can afford to store a single descriptor on multiple HSDirs
-        # this is currently only for informational purposes
+        # this is currently only for logging purposes
         failsafe = self._load_failsafe_param(num_descriptors)
 
         # since all our descriptors have the same public key and are uploaded at roughly the same time the responsible
@@ -361,7 +358,7 @@ class OnionbalanceService(object):
             return
 
         i = 0
-        # Upload descriptor
+        # Upload descriptors
         for desc in descriptors:
             self._upload_descriptor(my_onionbalance.controller.controller, desc, is_first_desc, desc.responsible_hsdirs,
                                     ddm, i)
@@ -374,8 +371,6 @@ class OnionbalanceService(object):
             desc.set_responsible_hsdirs(responsible_hsdirs)
 
             # Set the descriptor
-            # If we have more than one descriptor, self.first_descriptor and self.second_descriptor will always be the
-            # last one uploaded. Will this be a problem?
             if is_first_desc:
                 self.first_descriptor = desc
             else:
@@ -435,7 +430,7 @@ class OnionbalanceService(object):
 
         i = 0
         while i < num_descriptors:
-            # now assign intro points and create descriptor
+            # assign intro points
             assigned_intro_points = []
             j = 0
             while j < params.N_INTROS_PER_DESCRIPTOR:
@@ -447,6 +442,8 @@ class OnionbalanceService(object):
                     logger.info("Assigned all intro points to our descriptor(s).")
                     break
                 j += 1
+
+            # create descriptor
             try:
                 desc = descriptor.OBDescriptor(self.onion_address, self.identity_priv_key, blinding_param,
                                                assigned_intro_points, is_first_desc)
@@ -532,6 +529,9 @@ class OnionbalanceService(object):
             raise BadServiceInit
 
     def _assign_responsible_hdsirs(self, responsible_hsdirs, descriptors):
+        """
+        assign hsdirs to our descriptor(s)
+        """
         available_hsdirs = responsible_hsdirs.copy()
         index = len(available_hsdirs) // len(descriptors)
         i = 0
