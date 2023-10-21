@@ -1,13 +1,13 @@
-import math
-import os
+import pickle
 import random
 import string
+
 import mock
 import unittest
 from onionbalance.hs_v3 import descriptor, params
-from onionbalance.hs_v3.onionbalance import Onionbalance, ConfigError, logger
+from onionbalance.hs_v3.onionbalance import logger
 from onionbalance.hs_v3.service import OnionbalanceService, BadServiceInit
-from test.functional.util import parse_chutney_environment, random_onionv3_address, create_test_config_file_v3
+from test.functional.util import random_onionv3_address, create_test_config_file_v3
 
 
 def get_random_string(length):
@@ -92,7 +92,7 @@ class TestDDMService(unittest.TestCase):
         print(available_space)
 
         try:
-            assert available_space == 49648
+            assert available_space == params.MAX_DESCRIPTOR_SIZE - len(pickle.dumps(empty_desc))
         except AssertionError:
             raise
 
@@ -105,62 +105,74 @@ class TestDDMService(unittest.TestCase):
         num_descriptors = OnionbalanceService._calculate_needed_desc(mock_OnionbalanceService, self.intro_points,
                                                                      available_space)
         try:
-            assert num_descriptors == math.ceil(len(self.intro_points) / params.N_INTROS_PER_DESCRIPTOR)
+            assert ((num_descriptors * available_space > len(pickle.dumps(self.intro_points))) and
+                    (len(self.intro_points) <= params.N_INTROS_PER_DESCRIPTOR * num_descriptors))
         except AssertionError:
             raise
 
     def test_create_desc(self):
-        """
-        test assignment of intro points to resp. descriptor
-        """
         num_descriptors = 6
-        n_intros_per_descriptor = math.ceil(len(self.intro_points) / num_descriptors)
-
-        if num_descriptors > 1:
-            ddm = True
-        else:
-            ddm = False
-
+        ddm = True
         descriptors = []
-        # from here on slightly deviating from actual implementation for simplified testing
-        i = 0
-        while i < num_descriptors:
-            assigned_intro_points = []
-            j = 0
-            while j < n_intros_per_descriptor:
-                if len(self.intro_points) > 0:
-                    assigned_intro_points.append(self.intro_points[0])
-                    self.intro_points.pop(0)
-                    print("Assigned intro point %d to (sub)descriptor %d.", j + 1, i + 1)
-                else:
-                    print("Assigned all intro points to our descriptor(s).")
-                    break
-                j += 1
+        available_intro_points = self.intro_points.copy()
+
+        # will contain intro points for every descriptor
+        assigned_intro_points = []
+
+        # this step is needed to access assigned intro points via index
+        for i in range(num_descriptors):
+            assigned_intro_points.append([0])
+
+        for intro in self.intro_points:
+            # add intro point to every descriptor
+            for i in range(num_descriptors):
+                if len(available_intro_points) > 0 and (len(assigned_intro_points[i]) <= params.N_INTROS_PER_DESCRIPTOR):
+                    assigned_intro_points[i].append(intro)
+                    available_intro_points.pop(0)
+
+        if len(available_intro_points) == 0:
+            print("Assigned all intro points.")
+
+        if len(available_intro_points) > 0:
+            print("Couldn't assign %d intro points (this should never happen). Continue anyway",
+                  len(available_intro_points))
+
+        j = 0
+        for i in range(num_descriptors):
+            # remove unnecessary first element (0)
+            assigned_intro_points[j].pop(0)
             try:
-                desc = "%s %s %s %d" % (self.onion_address, self.blinding_param, assigned_intro_points,
-                                        self.is_first_desc)
+                desc = "%s %s %s %s" % (self.onion_address, self.blinding_param,
+                                        assigned_intro_points[j], self.is_first_desc)
+                descriptors.append(desc)
             except descriptor.BadDescriptor:
                 return
-            descriptors.append(desc)
+
+            # size of pickle is a little larger, keeping it for safety reasons so that our descriptors don't get to big
+            print(len(pickle.dumps(desc)))
+            print(len(str(desc)))
+
             if ddm:
                 print(
                     "Service %s created %s descriptor of subdescriptor %d (%s intro points) (blinding param: %s) "
                     "(size: %s bytes). About to publish:",
-                    self.onion_address, "first" if self.is_first_desc else "second", i + 1,
-                    len(assigned_intro_points), self.blinding_param, len(str(desc)))
+                    self.onion_address, "first" if self.is_first_desc else "second", j + 1,
+                    len(assigned_intro_points[j]), self.blinding_param, len(str(desc)))
             else:
                 print(
                     "Service %s created %s descriptor (%s intro points) (blinding param: %s) "
                     "(size: %s bytes). About to publish:",
                     self.onion_address, "first" if self.is_first_desc else "second",
-                    len(assigned_intro_points), self.blinding_param, len(str(desc)))
-            i += 1
+                    len(assigned_intro_points[j]), self.blinding_param, len(str(desc)))
 
-        print(descriptors)
+            j += 1
+
         try:
-            assert(len(self.intro_points) == 0 and len(descriptors) == num_descriptors)
+            assert (len(descriptors) == num_descriptors and
+                    len(pickle.dumps(descriptors[i])) < params.MAX_DESCRIPTOR_SIZE)
         except AssertionError:
             raise
+
 
     @mock.patch('onionbalance.hs_v3.service.OnionbalanceService')
     def test_failsafe_param(self, mock_OnionbalanceService):

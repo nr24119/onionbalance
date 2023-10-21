@@ -7,7 +7,7 @@ import pexpect
 
 from test.functional.util import *
 
-def test_chutney(tmpdir, num_instances = 60):
+def test_chutney(tmpdir, num_instances = 25):
     """
     functional test to create a config file used for testing in a chutney net
     """

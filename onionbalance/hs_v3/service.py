@@ -2,6 +2,8 @@ import datetime
 import math
 import os
 import pickle
+import sys
+
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
 
@@ -394,7 +396,7 @@ class OnionbalanceService(object):
         """
         calculate available space per descriptor to fit intro points
         """
-        current_size = len(str(empty_desc))
+        current_size = len(pickle.dumps(empty_desc))
         logger.info(
             "Size of descriptor without intro points is %s bytes", current_size)
 
@@ -403,58 +405,91 @@ class OnionbalanceService(object):
 
     def _calculate_needed_desc(self, intro_points, available_space):
         """
-        calculate number of descriptors needed to fit all intro points
+        calculate number of descriptors needed to fit all intro points in consideration of the max. number of
+        intro points allowed in a descriptor and the expected size of a descriptor
         """
 
-        # keep that in case we need it in the future
+        # space needed to fit all intro points
         needed_space = len(pickle.dumps(intro_points))
-        logger.info("We need around %s bytes of space for our intro_points (have %d per descriptor)", needed_space,
-                    available_space)
+        logger.info("We need around %s bytes of space for our intro_points (have %d bytes per descriptor and are "
+                    "allowed %d intro points per descriptor)", needed_space,
+                    available_space, params.N_INTROS_PER_DESCRIPTOR)
 
-        num_descriptors = math.ceil(len(intro_points) / params.N_INTROS_PER_DESCRIPTOR)
+        num_descriptors = 1
 
-        if num_descriptors > params.N_HSDIRS:
-            logger.error("We need more descriptors than we have HSDirs. Please lower the number of instances e.g. "
-                         "intro points")
-            raise BadServiceInit
-        else:
+        # predicted number of intro points per descriptor
+        num_intro_per_desc = 0
+        temp_space = available_space
+
+        i = 0
+        # calculate how many descriptors are needed by predicting the size of our descriptors with intro points
+        while needed_space > num_descriptors * available_space:
+            while i < len(intro_points):
+                #check if our current descriptors will contain more intro points than allowed
+                if num_intro_per_desc > params.N_INTROS_PER_DESCRIPTOR:
+                    # open new descriptor
+                    num_descriptors += 1
+                    num_intro_per_desc = 0
+                    temp_space = available_space
+                else:
+                    # check if next intro point will exceed available space in current descriptor
+                    if temp_space < len(pickle.dumps(intro_points[i])):
+                        num_descriptors += 1
+                        num_intro_per_desc = 0
+                        temp_space = available_space
+                    else:
+                        temp_space -= len(pickle.dumps(intro_points[i]))
+                        num_intro_per_desc += 1
+                i += 1
+
             logger.info("We need %d descriptor(s) to fit all intro points", num_descriptors)
             return num_descriptors
 
     def _create_descriptors(self, intro_points, num_descriptors, ddm, blinding_param, is_first_desc):
         """
-        create descriptor(s) with assigned intro points
+        assign intro points evenly to all descriptors and create descriptor(s) with assigned intro points
         """
-        available_intro_points = intro_points.copy()
         descriptors = []
+        available_intro_points = intro_points.copy()
 
-        i = 0
-        while i < num_descriptors:
-            # assign intro points
-            assigned_intro_points = []
-            j = 0
-            while j < params.N_INTROS_PER_DESCRIPTOR:
-                if len(available_intro_points) > 0:
-                    assigned_intro_points.append(available_intro_points[0])
+        # will contain intro points for every descriptor
+        assigned_intro_points = []
+
+        # this step is needed to access assigned intro points via index
+        for i in range(num_descriptors):
+            assigned_intro_points.append([0])
+
+        # this step is needed to access assigned intro points via index
+        for intro in intro_points:
+            # add intro point to every descriptor
+            for i in range(num_descriptors):
+                if len(available_intro_points) > 0 and (len(assigned_intro_points[i]) <= params.N_INTROS_PER_DESCRIPTOR):
+                    assigned_intro_points[i].append(intro)
                     available_intro_points.pop(0)
-                    logger.info("Assigned intro point %d to (sub)descriptor %d.", j + 1, i + 1)
-                else:
-                    logger.info("Assigned all intro points to our descriptor(s).")
-                    break
-                j += 1
 
-            # create descriptor
+        if len(available_intro_points) == 0:
+            logger.info("Assigned all intro points.")
+
+        if len(available_intro_points) > 0:
+            logger.info("Couldn't assign %d intro points (this should never happen). Continue anyway",
+                        len(available_intro_points))
+
+        j = 0
+        for i in range(num_descriptors):
+            # remove unnecessary first element (0)
+            assigned_intro_points[j].pop(0)
             try:
                 desc = descriptor.OBDescriptor(self.onion_address, self.identity_priv_key, blinding_param,
-                                               assigned_intro_points, is_first_desc)
+                                               assigned_intro_points[j], is_first_desc)
+                descriptors.append(desc)
             except descriptor.BadDescriptor:
                 return
-            descriptors.append(desc)
+
             if ddm:
                 logger.info(
                     "Service %s created %s descriptor of subdescriptor %d (%s intro points) (blinding param: %s) "
                     "(size: %s bytes). About to publish:",
-                    self.onion_address, "first" if is_first_desc else "second", i + 1,
+                    self.onion_address, "first" if is_first_desc else "second", j + 1,
                     len(desc.intro_set), blinding_param.hex(), len(str(desc.v3_desc)))
             else:
                 logger.info(
@@ -462,7 +497,7 @@ class OnionbalanceService(object):
                     "(size: %s bytes). About to publish:",
                     self.onion_address, "first" if is_first_desc else "second",
                     len(desc.intro_set), blinding_param.hex(), len(str(desc.v3_desc)))
-            i += 1
+            j += 1
 
         return descriptors
 
