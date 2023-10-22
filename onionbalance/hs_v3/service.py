@@ -442,8 +442,8 @@ class OnionbalanceService(object):
                         num_intro_per_desc += 1
                 i += 1
 
-            logger.info("We need %d descriptor(s) to fit all intro points", num_descriptors)
-            return num_descriptors
+        logger.info("We need %d descriptor(s) to fit all intro points", num_descriptors)
+        return num_descriptors
 
     def _create_descriptors(self, intro_points, num_descriptors, ddm, blinding_param, is_first_desc):
         """
