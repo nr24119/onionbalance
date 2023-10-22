@@ -459,14 +459,15 @@ class OnionbalanceService(object):
         for i in range(num_descriptors):
             assigned_intro_points.append([0])
 
-        # this step is needed to access assigned intro points via index
-        for intro in intro_points:
-            # add intro point to every descriptor
-            for i in range(num_descriptors):
-                if len(available_intro_points) > 0 and (len(assigned_intro_points[i]) <= params.N_INTROS_PER_DESCRIPTOR):
-                    assigned_intro_points[i].append(intro)
-                    available_intro_points.pop(0)
-                    logger.info("Assigned intro point to (sub)descriptor %d.", i + 1)
+        # determine which intro point belongs to which descriptor
+        i = 0
+        while len(available_intro_points) > 0:
+            assigned_intro_points[i].append(available_intro_points[0])
+            available_intro_points.pop(0)
+            if i + 1 == num_descriptors:
+                i = 0
+            else:
+                i += 1
 
         if len(available_intro_points) == 0:
             logger.info("Assigned all intro points.")
@@ -479,6 +480,7 @@ class OnionbalanceService(object):
             # remove unnecessary first element (0)
             assigned_intro_points[i].pop(0)
             try:
+                # create descriptor with assigned intro points
                 desc = descriptor.OBDescriptor(self.onion_address, self.identity_priv_key, blinding_param,
                                                assigned_intro_points[i], is_first_desc)
                 descriptors.append(desc)
@@ -575,13 +577,16 @@ class OnionbalanceService(object):
         for i in range(num_descriptors):
             assigned_hsdirs.append([0])
 
-        for hsdir in responsible_hsdirs:
-            # add hsdir to every descriptor
-            for i in range(num_descriptors):
-                if len(available_hsdirs) > 0 and len(assigned_hsdirs[i]) <= params.N_HSDIRS:
-                    assigned_hsdirs[i].append(hsdir)
-                    available_hsdirs.pop(0)
-                    logger.info("Assigned hsdir to (sub)descriptor %d.", i + 1)
+        # determine which hsdir belong to which descriptor
+        i = 0
+        while len(available_hsdirs) > 0:
+            assigned_hsdirs[i].append(available_hsdirs[0])
+            available_hsdirs.pop(0)
+            logger.info("Assigned hsdir to (sub)descriptor %d.", i + 1)
+            if i + 1 == num_descriptors:
+                i = 0
+            else:
+                i += 1
 
         if len(available_hsdirs) == 0:
             logger.info("Assigned all hsdirs.")
@@ -594,6 +599,7 @@ class OnionbalanceService(object):
             # remove unnecessary first element (0)
             assigned_hsdirs[i].pop(0)
             try:
+                # assign hsdirs to resp. descriptor
                 descriptors[i].set_responsible_hsdirs(assigned_hsdirs[i])
             except BadServiceInit:
                 return

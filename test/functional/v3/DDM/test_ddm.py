@@ -57,7 +57,7 @@ class TestDDMService(unittest.TestCase):
 
     # create hsdirs
     j = 0
-    while j < 20:
+    while j < 6:
         hsdir = DummyHSdir()
         responsible_hsdirs.append(hsdir)
         j += 1
@@ -111,10 +111,14 @@ class TestDDMService(unittest.TestCase):
             raise
 
     def test_create_desc(self):
-        num_descriptors = 6
+        """
+        test creation of needed descriptors
+        slightly deviating from actual implementation for testing purposes
+        """
         ddm = True
         descriptors = []
         available_intro_points = self.intro_points.copy()
+        num_descriptors = len(self.descriptors)
 
         # will contain intro points for every descriptor
         assigned_intro_points = []
@@ -123,12 +127,15 @@ class TestDDMService(unittest.TestCase):
         for i in range(num_descriptors):
             assigned_intro_points.append([0])
 
-        for intro in self.intro_points:
-            # add intro point to every descriptor
-            for i in range(num_descriptors):
-                if len(available_intro_points) > 0 and (len(assigned_intro_points[i]) <= params.N_INTROS_PER_DESCRIPTOR):
-                    assigned_intro_points[i].append(intro)
-                    available_intro_points.pop(0)
+        # determine which intro point belongs to which descriptor
+        i = 0
+        while len(available_intro_points) > 0:
+            assigned_intro_points[i].append(available_intro_points[0])
+            available_intro_points.pop(0)
+            if i + 1 == num_descriptors:
+                i = 0
+            else:
+                i += 1
 
         if len(available_intro_points) == 0:
             print("Assigned all intro points.")
@@ -141,6 +148,7 @@ class TestDDMService(unittest.TestCase):
             # remove unnecessary first element (0)
             assigned_intro_points[i].pop(0)
             try:
+                # create descriptor with assigned intro points
                 desc = "%s %s %s %s" % (self.onion_address, self.blinding_param,
                                         assigned_intro_points[i], self.is_first_desc)
                 descriptors.append(desc)
@@ -163,8 +171,6 @@ class TestDDMService(unittest.TestCase):
                     "(size: %s bytes). About to publish:",
                     self.onion_address, "first" if self.is_first_desc else "second",
                     len(assigned_intro_points[i]), self.blinding_param, len(str(desc)))
-
-
         try:
             assert (len(descriptors) == num_descriptors and
                     len(pickle.dumps(descriptors[i])) < params.MAX_DESCRIPTOR_SIZE)
@@ -174,8 +180,10 @@ class TestDDMService(unittest.TestCase):
 
     @mock.patch('onionbalance.hs_v3.service.OnionbalanceService')
     def test_failsafe_param(self, mock_OnionbalanceService):
-        # test functionality of added log message, test with actual implementation
-        # default (params.py): HSDIR_N_REPLICAS = 2, HSDIR_SPREAD_STORE = 3
+        """
+        test functionality of added log message, test with actual implementation
+        default (params.py): HSDIR_N_REPLICAS = 2, HSDIR_SPREAD_STORE = 3
+        """
         num_descriptors_a = 1
         num_descriptors_b = 3
         num_descriptors_c = 4
@@ -203,22 +211,27 @@ class TestDDMService(unittest.TestCase):
     def test_assign_hsdirs(self):
         """
         test assignment of hsdir to our descriptor(s)
+        slightly deviating from actual implementation for testing purposes
         """
         available_hsdirs = self.responsible_hsdirs.copy()
         # will contain hsdirs for resp. descriptor
         assigned_hsdirs = []
-        num_descriptors = len(self.descriptors)
+        num_descriptors = 3
+
         # this step is needed to access assigned intro points via index
         for i in range(num_descriptors):
             assigned_hsdirs.append([0])
 
-        for hsdir in self.responsible_hsdirs:
-            # add hsdir to every descriptor
-            for i in range(num_descriptors):
-                if len(available_hsdirs) > 0 and len(assigned_hsdirs[i]) <= params.N_HSDIRS:
-                    assigned_hsdirs[i].append(hsdir)
-                    available_hsdirs.pop(0)
-                    logger.info("Assigned hsdir to (sub)descriptor %d.", i + 1)
+        # determine which hsdir belong to which descriptor
+        i = 0
+        while len(available_hsdirs) > 0:
+            assigned_hsdirs[i].append(available_hsdirs[0])
+            available_hsdirs.pop(0)
+            logger.info("Assigned hsdir to (sub)descriptor %d.", i + 1)
+            if i+1 == num_descriptors:
+                i = 0
+            else:
+                i += 1
 
         if len(available_hsdirs) == 0:
             logger.info("Assigned all hsdirs.")
@@ -230,16 +243,16 @@ class TestDDMService(unittest.TestCase):
         for i in range(num_descriptors):
             # remove unnecessary first element (0)
             assigned_hsdirs[i].pop(0)
+            print(assigned_hsdirs[i])
             try:
+                # assign hsdirs to resp. descriptor
                 self.descriptors[i].set_responsible_hsdirs(assigned_hsdirs[i])
             except AssertionError:
                 raise
 
-
-
     def test_too_may_instances(self, num_instances = params.MAX_INSTANCES+10):
         """
-            test functionality of added log message
+        test functionality of added log message
         """
         list_instances = []
         i = 0
