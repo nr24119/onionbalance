@@ -355,7 +355,7 @@ class OnionbalanceService(object):
             return
 
         try:
-            self._assign_responsible_hdsirs(responsible_hsdirs, descriptors)
+            self._assign_responsible_hdsirs(descriptors, responsible_hsdirs)
         except BadServiceInit:
             return
 
@@ -466,6 +466,7 @@ class OnionbalanceService(object):
                 if len(available_intro_points) > 0 and (len(assigned_intro_points[i]) <= params.N_INTROS_PER_DESCRIPTOR):
                     assigned_intro_points[i].append(intro)
                     available_intro_points.pop(0)
+                    logger.info("Assigned intro point to (sub)descriptor %d.", i + 1)
 
         if len(available_intro_points) == 0:
             logger.info("Assigned all intro points.")
@@ -474,13 +475,12 @@ class OnionbalanceService(object):
             logger.info("Couldn't assign %d intro points (this should never happen). Continue anyway",
                         len(available_intro_points))
 
-        j = 0
         for i in range(num_descriptors):
             # remove unnecessary first element (0)
-            assigned_intro_points[j].pop(0)
+            assigned_intro_points[i].pop(0)
             try:
                 desc = descriptor.OBDescriptor(self.onion_address, self.identity_priv_key, blinding_param,
-                                               assigned_intro_points[j], is_first_desc)
+                                               assigned_intro_points[i], is_first_desc)
                 descriptors.append(desc)
             except descriptor.BadDescriptor:
                 return
@@ -489,7 +489,7 @@ class OnionbalanceService(object):
                 logger.info(
                     "Service %s created %s descriptor of subdescriptor %d (%s intro points) (blinding param: %s) "
                     "(size: %s bytes). About to publish:",
-                    self.onion_address, "first" if is_first_desc else "second", j + 1,
+                    self.onion_address, "first" if is_first_desc else "second", i + 1,
                     len(desc.intro_set), blinding_param.hex(), len(str(desc.v3_desc)))
             else:
                 logger.info(
@@ -497,7 +497,6 @@ class OnionbalanceService(object):
                     "(size: %s bytes). About to publish:",
                     self.onion_address, "first" if is_first_desc else "second",
                     len(desc.intro_set), blinding_param.hex(), len(str(desc.v3_desc)))
-            j += 1
 
         return descriptors
 
@@ -563,34 +562,41 @@ class OnionbalanceService(object):
             logger.error("Something went wrong. Maybe no N_HSDIRS set? Aborting.")
             raise BadServiceInit
 
-    def _assign_responsible_hdsirs(self, responsible_hsdirs, descriptors):
+    def _assign_responsible_hdsirs(self, descriptors, responsible_hsdirs):
         """
         assign hsdirs to our descriptor(s)
         """
         available_hsdirs = responsible_hsdirs.copy()
-        index = len(available_hsdirs) // len(descriptors)
-        i = 0
-        while i < len(descriptors):
-            # now assign hsdirs to our descriptor(s)
-            assigned_hsdirs = []
-            j = 1
-            while j <= index:
-                if len(available_hsdirs) > 0:
-                    assigned_hsdirs.append(available_hsdirs[0])
-                    logger.info("Assigned hsdir to (sub)descriptor %d.", i + 1)
+        # will contain hsdirs for resp. descriptor
+        assigned_hsdirs = []
+        num_descriptors = len(descriptors)
+
+        # this step is needed to access assigned intro points via index
+        for i in range(num_descriptors):
+            assigned_hsdirs.append([0])
+
+        for hsdir in responsible_hsdirs:
+            # add hsdir to every descriptor
+            for i in range(num_descriptors):
+                if len(available_hsdirs) > 0 and len(assigned_hsdirs[i]) <= params.N_HSDIRS:
+                    assigned_hsdirs[i].append(hsdir)
                     available_hsdirs.pop(0)
-                else:
-                    logger.info("Assigned all hsdirs to our descriptor(s).")
-                    break
-                j += 1
+                    logger.info("Assigned hsdir to (sub)descriptor %d.", i + 1)
+
+        if len(available_hsdirs) == 0:
+            logger.info("Assigned all hsdirs.")
+
+        if len(available_hsdirs) > 0:
+            logger.info("Couldn't assign %d hsdirs (this should never happen). Continue anyway",
+                        len(available_hsdirs))
+
+        for i in range(num_descriptors):
+            # remove unnecessary first element (0)
+            assigned_hsdirs[i].pop(0)
             try:
-                descriptors[i].set_responsible_hsdirs(assigned_hsdirs)
-                logger.info("Assigned %d hsdir(s) to (sub)descriptor %d.",
-                            len(descriptors[i].responsible_hsdirs), i + 1)
+                descriptors[i].set_responsible_hsdirs(assigned_hsdirs[i])
             except BadServiceInit:
                 return
-
-            i += 1
 
 
 class NotEnoughIntros(Exception):

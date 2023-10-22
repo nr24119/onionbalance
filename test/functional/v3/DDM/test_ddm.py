@@ -137,13 +137,12 @@ class TestDDMService(unittest.TestCase):
             print("Couldn't assign %d intro points (this should never happen). Continue anyway",
                   len(available_intro_points))
 
-        j = 0
         for i in range(num_descriptors):
             # remove unnecessary first element (0)
-            assigned_intro_points[j].pop(0)
+            assigned_intro_points[i].pop(0)
             try:
                 desc = "%s %s %s %s" % (self.onion_address, self.blinding_param,
-                                        assigned_intro_points[j], self.is_first_desc)
+                                        assigned_intro_points[i], self.is_first_desc)
                 descriptors.append(desc)
             except descriptor.BadDescriptor:
                 return
@@ -156,16 +155,15 @@ class TestDDMService(unittest.TestCase):
                 print(
                     "Service %s created %s descriptor of subdescriptor %d (%s intro points) (blinding param: %s) "
                     "(size: %s bytes). About to publish:",
-                    self.onion_address, "first" if self.is_first_desc else "second", j + 1,
-                    len(assigned_intro_points[j]), self.blinding_param, len(str(desc)))
+                    self.onion_address, "first" if self.is_first_desc else "second", i + 1,
+                    len(assigned_intro_points[i]), self.blinding_param, len(str(desc)))
             else:
                 print(
                     "Service %s created %s descriptor (%s intro points) (blinding param: %s) "
                     "(size: %s bytes). About to publish:",
                     self.onion_address, "first" if self.is_first_desc else "second",
-                    len(assigned_intro_points[j]), self.blinding_param, len(str(desc)))
+                    len(assigned_intro_points[i]), self.blinding_param, len(str(desc)))
 
-            j += 1
 
         try:
             assert (len(descriptors) == num_descriptors and
@@ -204,35 +202,39 @@ class TestDDMService(unittest.TestCase):
 
     def test_assign_hsdirs(self):
         """
-        test assignment of hsdir to our descriptor(s), test with actual implementation
+        test assignment of hsdir to our descriptor(s)
         """
+        available_hsdirs = self.responsible_hsdirs.copy()
+        # will contain hsdirs for resp. descriptor
+        assigned_hsdirs = []
+        num_descriptors = len(self.descriptors)
+        # this step is needed to access assigned intro points via index
+        for i in range(num_descriptors):
+            assigned_hsdirs.append([0])
 
-        # slightly deviating from actual implementation for simplified testing
-        index = len(self.responsible_hsdirs) // len(self.descriptors)
-        i = 0
-        while i < len(self.descriptors):
-            assigned_hsdirs = []
-            j = 1
-            while j <= index:
-                if len(self.responsible_hsdirs) > 0:
-                    assigned_hsdirs.append(self.responsible_hsdirs[0])
-                    print("Assigned hsdir %s to (sub)descriptor %d.", self.responsible_hsdirs[0], i + 1)
-                    self.responsible_hsdirs.pop(0)
-                else:
-                    print("Assigned all hsdirs to our descriptor(s).")
-                    break
-                j += 1
+        for hsdir in self.responsible_hsdirs:
+            # add hsdir to every descriptor
+            for i in range(num_descriptors):
+                if len(available_hsdirs) > 0 and len(assigned_hsdirs[i]) <= params.N_HSDIRS:
+                    assigned_hsdirs[i].append(hsdir)
+                    available_hsdirs.pop(0)
+                    logger.info("Assigned hsdir to (sub)descriptor %d.", i + 1)
+
+        if len(available_hsdirs) == 0:
+            logger.info("Assigned all hsdirs.")
+
+        if len(available_hsdirs) > 0:
+            logger.info("Couldn't assign %d hsdirs (this should never happen). Continue anyway",
+                        len(available_hsdirs))
+
+        for i in range(num_descriptors):
+            # remove unnecessary first element (0)
+            assigned_hsdirs[i].pop(0)
             try:
-                self.descriptors[i].set_responsible_hsdirs(assigned_hsdirs)
-                print("Assigned %d hsdir(s) to (sub)descriptor %d.", len(self.descriptors[i].responsible_hsdirs), i + 1)
-            except BadServiceInit:
-                return
-            i += 1
+                self.descriptors[i].set_responsible_hsdirs(assigned_hsdirs[i])
+            except AssertionError:
+                raise
 
-        try:
-            self.descriptors[0].responsible_hsdirs
-        except AssertionError:
-            raise
 
 
     def test_too_may_instances(self, num_instances = params.MAX_INSTANCES+10):
