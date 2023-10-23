@@ -425,7 +425,7 @@ class OnionbalanceService(object):
         # calculate how many descriptors are needed by predicting the size of our descriptors with intro points
         while needed_space > num_descriptors * available_space:
             while i < len(intro_points):
-                #check if our current descriptors will contain more intro points than allowed
+                # check if our current descriptors will contain more intro points than allowed
                 if num_intro_per_desc > params.N_INTROS_PER_DESCRIPTOR:
                     # open new descriptor
                     num_descriptors += 1
