@@ -398,7 +398,7 @@ class OnionbalanceService(object):
         """
         current_size = len(pickle.dumps(empty_desc))
         logger.info(
-            "Size of descriptor without intro points is %s bytes", current_size)
+            "Size of descriptor without intro points is %s bytes.", current_size)
 
         available_space = params.MAX_DESCRIPTOR_SIZE - current_size
         return available_space
@@ -412,7 +412,7 @@ class OnionbalanceService(object):
         # space needed to fit all intro points
         needed_space = len(pickle.dumps(intro_points))
         logger.info("We need around %s bytes of space for our intro_points (have %d bytes per descriptor and are "
-                    "allowed %d intro points per descriptor)", needed_space,
+                    "allowed %d intro points per descriptor.)", needed_space,
                     available_space, params.N_INTROS_PER_DESCRIPTOR)
 
         num_descriptors = 1
@@ -442,7 +442,7 @@ class OnionbalanceService(object):
                         num_intro_per_desc += 1
                 i += 1
 
-        logger.info("We need %d descriptor(s) to fit all intro points", num_descriptors)
+        logger.info("We need %d descriptor(s) to fit all intro points.", num_descriptors)
         return num_descriptors
 
     def _create_descriptors(self, intro_points, num_descriptors, ddm, blinding_param, is_first_desc):
@@ -473,7 +473,7 @@ class OnionbalanceService(object):
             logger.info("Assigned all intro points.")
 
         if len(available_intro_points) > 0:
-            logger.info("Couldn't assign %d intro points (this should never happen). Continue anyway",
+            logger.info("Couldn't assign %d intro points (this should never happen). Continue anyway.",
                         len(available_intro_points))
 
         for i in range(num_descriptors):
@@ -510,11 +510,11 @@ class OnionbalanceService(object):
 
         ob_desc.set_last_publish_attempt_ts(datetime.datetime.utcnow())
         if ddm:
-            logger.info("Uploading %s descriptor of subdescriptor %d for %s to %s",
+            logger.info("Uploading %s descriptor of subdescriptor %d for %s to %s.",
                         "first" if is_first_desc else "second", index + 1,
                         self.onion_address, hsdirs)
         else:
-            logger.info("Uploading %s descriptor for %s to %s",
+            logger.info("Uploading %s descriptor for %s to %s.",
                         "first" if is_first_desc else "second",
                         self.onion_address, hsdirs)
 
@@ -553,11 +553,11 @@ class OnionbalanceService(object):
             logger.error("We have not enough HSDirs configured to fit our %s descriptor(s).", num_descriptors)
             raise BadServiceInit
         elif params.N_HSDIRS // params.HSDIR_N_REPLICAS >= num_descriptors:
-            logger.info("We have enough HSDirs configured to fit our %d descriptor(s) multiple times",
+            logger.info("We have enough HSDirs configured to fit our %d descriptor(s) multiple times.",
                         num_descriptors)
             return True
         elif params.N_HSDIRS // params.HSDIR_N_REPLICAS < num_descriptors:
-            logger.info("We have enough HSDirs configured to fit our %d descriptor(s) once",
+            logger.info("We have enough HSDirs configured to fit our %d descriptor(s) once.",
                         num_descriptors)
             return False
         else:
@@ -592,7 +592,7 @@ class OnionbalanceService(object):
             logger.info("Assigned all hsdirs.")
 
         if len(available_hsdirs) > 0:
-            logger.info("Couldn't assign %d hsdirs (this should never happen). Continue anyway",
+            logger.info("Couldn't assign %d hsdirs (this should never happen). Continue anyway.",
                         len(available_hsdirs))
 
         for i in range(num_descriptors):

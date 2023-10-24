@@ -141,7 +141,7 @@ class TestDDMService(unittest.TestCase):
             print("Assigned all intro points.")
 
         if len(available_intro_points) > 0:
-            print("Couldn't assign %d intro points (this should never happen). Continue anyway",
+            print("Couldn't assign %d intro points (this should never happen). Continue anyway.",
                   len(available_intro_points))
 
         for i in range(num_descriptors):
@@ -237,7 +237,7 @@ class TestDDMService(unittest.TestCase):
             logger.info("Assigned all hsdirs.")
 
         if len(available_hsdirs) > 0:
-            logger.info("Couldn't assign %d hsdirs (this should never happen). Continue anyway",
+            logger.info("Couldn't assign %d hsdirs (this should never happen). Continue anyway.",
                         len(available_hsdirs))
 
         for i in range(num_descriptors):
