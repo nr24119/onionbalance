@@ -405,7 +405,7 @@ class OnionbalanceService(object):
 
     def _calculate_needed_desc(self, intro_points, available_space):
         """
-        calculate number of descriptors needed to fit all intro points in consideration of the max. number of
+        calculate approximate number of descriptors needed to fit all intro points in consideration of the max. number of
         intro points allowed in a descriptor and the expected size of a descriptor
         """
 
@@ -455,9 +455,10 @@ class OnionbalanceService(object):
         # will contain intro points for every descriptor
         assigned_intro_points = []
 
-        # this step is needed to access assigned intro points via index
+        # this step is needed to assign the intro points for our descriptors via index
         for i in range(num_descriptors):
             assigned_intro_points.append([0])
+        # list looks like this: [[0], [0], ..., [0]]
 
         # determine which intro point belongs to which descriptor
         i = 0
@@ -468,6 +469,7 @@ class OnionbalanceService(object):
                 i = 0
             else:
                 i += 1
+        # our intro list will look like this: [[0, Intro_1, ...], [0, Intro_2, ...], [...], [0, ..., Intro_n]
 
         if len(available_intro_points) == 0:
             logger.info("Assigned all intro points.")
@@ -477,7 +479,7 @@ class OnionbalanceService(object):
                         len(available_intro_points))
 
         for i in range(num_descriptors):
-            # remove unnecessary first element (0)
+            # remove first element [0] for every descriptor in list
             assigned_intro_points[i].pop(0)
             try:
                 # create descriptor with assigned intro points
@@ -583,6 +585,7 @@ class OnionbalanceService(object):
             assigned_hsdirs[i].append(available_hsdirs[0])
             available_hsdirs.pop(0)
             logger.info("Assigned hsdir to (sub)descriptor %d.", i + 1)
+            # reset index if all descriptors got another intro point
             if i + 1 == num_descriptors:
                 i = 0
             else:
@@ -596,7 +599,7 @@ class OnionbalanceService(object):
                         len(available_hsdirs))
 
         for i in range(num_descriptors):
-            # remove unnecessary first element (0)
+            # remove first element [0] for every descriptor in list
             assigned_hsdirs[i].pop(0)
             try:
                 # assign hsdirs to resp. descriptor
