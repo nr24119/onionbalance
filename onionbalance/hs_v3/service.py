@@ -465,6 +465,7 @@ class OnionbalanceService(object):
         while len(available_intro_points) > 0:
             assigned_intro_points[i].append(available_intro_points[0])
             available_intro_points.pop(0)
+            # reset index if every descriptor got another intro point
             if i + 1 == num_descriptors:
                 i = 0
             else:
@@ -579,13 +580,13 @@ class OnionbalanceService(object):
         for i in range(num_descriptors):
             assigned_hsdirs.append([0])
 
-        # determine which hsdir belong to which descriptor
+        # determine which hsdir belongs to which descriptor
         i = 0
         while len(available_hsdirs) > 0:
             assigned_hsdirs[i].append(available_hsdirs[0])
             available_hsdirs.pop(0)
             logger.info("Assigned hsdir to (sub)descriptor %d.", i + 1)
-            # reset index if all descriptors got another intro point
+            # reset index if every descriptor got another hsdir
             if i + 1 == num_descriptors:
                 i = 0
             else:
