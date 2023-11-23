@@ -425,21 +425,16 @@ class OnionbalanceService(object):
         # calculate how many descriptors are needed by predicting the size of our descriptors with intro points
         while needed_space > num_descriptors * available_space:
             while i < len(intro_points):
-                # check if our current descriptors will contain more intro points than allowed
-                if num_intro_per_desc > params.N_INTROS_PER_DESCRIPTOR:
+                # check if our current descriptors will contain more intro points than allowed or
+                # if next intro point will exceed available space in current descriptor
+                if num_intro_per_desc > params.N_INTROS_PER_DESCRIPTOR or temp_space < len(pickle.dumps(intro_points[i])):
                     # open new descriptor
                     num_descriptors += 1
                     num_intro_per_desc = 0
                     temp_space = available_space
                 else:
-                    # check if next intro point will exceed available space in current descriptor
-                    if temp_space < len(pickle.dumps(intro_points[i])):
-                        num_descriptors += 1
-                        num_intro_per_desc = 0
-                        temp_space = available_space
-                    else:
-                        temp_space -= len(pickle.dumps(intro_points[i]))
-                        num_intro_per_desc += 1
+                    temp_space -= len(pickle.dumps(intro_points[i]))
+                    num_intro_per_desc += 1
                 i += 1
 
         logger.info("We need %d descriptor(s) to fit all intro points.", num_descriptors)
