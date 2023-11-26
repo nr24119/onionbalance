@@ -136,13 +136,7 @@ class TestDDMService(unittest.TestCase):
                 i = 0
             else:
                 i += 1
-
-        if len(available_intro_points) == 0:
-            print("Assigned all intro points.")
-
-        if len(available_intro_points) > 0:
-            print("Couldn't assign %d intro points (this should never happen). Continue anyway.",
-                  len(available_intro_points))
+        print("Assigned all intro points.")
 
         for i in range(num_descriptors):
             # remove unnecessary first element (0)

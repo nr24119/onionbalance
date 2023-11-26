@@ -423,6 +423,7 @@ class OnionbalanceService(object):
 
         i = 0
         # calculate how many descriptors are needed by predicting the size of our descriptors with intro points
+        # if next intro point will exceed available space in current descriptor
         while needed_space > num_descriptors * available_space:
             while i < len(intro_points):
                 # check if our current descriptors will contain more intro points than allowed or
@@ -465,14 +466,8 @@ class OnionbalanceService(object):
                 i = 0
             else:
                 i += 1
-        # our intro list will look like this: [[0, Intro_1, ...], [0, Intro_2, ...], [...], [0, ..., Intro_n]
-
-        if len(available_intro_points) == 0:
-            logger.info("Assigned all intro points.")
-
-        if len(available_intro_points) > 0:
-            logger.info("Couldn't assign %d intro points (this should never happen). Continue anyway.",
-                        len(available_intro_points))
+        logger.info("Assigned all intro points.")
+        # our intro list will look like this: [[0, Intro_1, ...], [0, Intro_2, ...], [...], [0, ..., Intro_n]]
 
         for i in range(num_descriptors):
             # remove first element [0] for every descriptor in list
@@ -555,7 +550,7 @@ class OnionbalanceService(object):
                         num_descriptors)
             return True
         elif params.N_HSDIRS // params.HSDIR_N_REPLICAS < num_descriptors:
-            logger.info("We have enough HSDirs configured to fit our %d descriptor(s) once.",
+            logger.info("We have enough HSDirs configured to fit our %d descriptor(s) at least once.",
                         num_descriptors)
             return False
         else:
