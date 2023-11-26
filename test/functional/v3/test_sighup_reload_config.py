@@ -5,7 +5,7 @@ import time
 
 import pexpect
 
-from test.functional.util import *
+from test.functional.util import parse_chutney_environment, random_onionv3_address, create_test_config_file_v3
 
 def test_sighup_reload_config(tmpdir, num_instances=30):
     """

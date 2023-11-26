@@ -1,6 +1,3 @@
-import pickle
-from pprint import pprint
-
 from stem.control import Controller
 from onionbalance.hs_v3 import descriptor
 

@@ -1,11 +1,5 @@
-# -*- coding: utf-8 -*-
-import signal
-import sys
-import time
+from test.functional.util import create_test_config_file_v3
 
-import pexpect
-
-from test.functional.util import *
 
 def test_chutney(tmpdir, num_instances = 25):
     """
