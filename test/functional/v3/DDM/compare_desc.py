@@ -1,13 +1,15 @@
+import unittest
+
 from stem.control import Controller
 from onionbalance.hs_v3 import descriptor
 
 
+@unittest.skip("test was only used for research purposes")
 def test_comparing_descriptors():
     """
     only used to compare a ddm descriptor with a regular onion service descriptor in the IDE-Debugger
     """
     with Controller.from_port(port=5053) as controller:
-
         controller.authenticate()
 
         # get hidden service descriptor of a regular onion service
@@ -25,6 +27,3 @@ def test_comparing_descriptors():
         onion_address_ob = '<your_ddm_address>.onion'
         descriptor_text_ob = str(desc_ob).encode('utf-8')
         ob_descriptor = descriptor.ReceivedDescriptor(descriptor_text_ob, onion_address_ob)
-
-
-

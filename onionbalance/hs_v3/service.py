@@ -340,10 +340,9 @@ class OnionbalanceService(object):
 
         descriptors = self._create_descriptors(intro_points, num_descriptors, ddm, blinding_param, is_first_desc)
 
-
         # failsafe means that we can afford to store a single descriptor on multiple HSDirs
         # this is currently only for logging purposes
-        failsafe = self._load_failsafe_param(num_descriptors)
+        self._load_failsafe_param(num_descriptors)
 
         # since all our descriptors have the same public key and are uploaded at roughly the same time, the responsible
         # hsdirs are the same for all of them
