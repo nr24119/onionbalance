@@ -1,6 +1,9 @@
+import unittest
+
 from test.functional.util import create_test_config_file_v3
 
 
+@unittest.skip("test was only used for research purposes")
 def test_chutney(tmpdir, num_instances=25):
     """
     functional test to create a config file used for testing in a chutney net
@@ -28,4 +31,3 @@ def test_chutney(tmpdir, num_instances=25):
     # Manually set config-path, install and start Onionbalance in terminal
     # sudo python3 setup.py install
     # ./onionbalance.py --hs-version v3 -i 127.0.0.1 -p 8008 -c <path_to_config.yaml> -v debug --is-testnet
-
