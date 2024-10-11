@@ -1,5 +1,8 @@
 ---
 image: python:bookworm
+include:
+  project: tpo/web/onion-mkdocs
+  file: .gitlab-ci-base.yml
 
 stages:
   - setup
@@ -8,9 +11,9 @@ stages:
 
 .base:
   before_script:
-    - pip install -r requirements.txt
-    - pip install -r test-requirements.txt
-    - python3 setup.py install
+    - pip3 install -r requirements.txt --break-system-packages
+    - pip3 install -r test-requirements.txt  --break-system-packages
+    - python3 -m pip install . --break-system-packages
 
 install:
   stage: setup
@@ -44,10 +47,8 @@ style_tests:
 
 pages:
   stage: deploy
-  extends: .base
-  script:
-    - sphinx-build -W -b html -d ./docs/_build ./docs ./docs/_build/html
-    - cp -a ./docs/_build/html ./public
-  artifacts:
-    paths:
-      - public
+  extends: .onion-mkdocs-clone
+  after_script:
+    - $ONION_MKDOCS_LOCATION/scripts/onion-mkdocs-provision-build
+    - $ONION_MKDOCS_LOCATION/scripts/onion-mkdocs-build
+    - scripts/docs-preserve-historic-urls

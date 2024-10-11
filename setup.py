@@ -25,7 +25,7 @@ def read(*names, **kwargs):
 setup(
     name="Onionbalance",
     packages=["onionbalance",
-              "onionbalance.hs_v2", "onionbalance.hs_v3", "onionbalance.hs_v3.ext", "onionbalance.common",
+              "onionbalance.hs_v3", "onionbalance.hs_v3.ext", "onionbalance.common",
               "onionbalance.config_generator"],
     entry_points={
         "console_scripts": [
@@ -35,7 +35,8 @@ setup(
     description="Onionbalance provides load-balancing and redundancy for Tor "
                 "hidden services by distributing requests to multiple backend "
                 "Tor instances.",
-    long_description=read('README.rst'),
+    long_description=read('README.md'),
+    long_description_content_type='text/markdown',
     author=module_info.get('__author__'),
     author_email=module_info.get('__contact__'),
     url=module_info.get('__url__'),

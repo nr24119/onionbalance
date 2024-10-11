@@ -102,8 +102,7 @@ class Onionbalance(object):
                 try:
                     _ = HiddenServiceDescriptorV3.identity_key_from_address(instance["address"])
                 except ValueError:
-                    raise ConfigError("Cannot load instance with address: '{}'. If you are trying to run onionbalance "
-                                      "for v2 onions, please use the --hs-version=v2 switch".format(instance["address"]))
+                    raise ConfigError("Cannot load instance with address: '{}'".format(instance["address"]))
 
             if len(service["instances"]) > MAX_INSTANCES:
                 raise ConfigError("Gave to many instances for Onionbalance to handle (max. number of instances: %s)",
