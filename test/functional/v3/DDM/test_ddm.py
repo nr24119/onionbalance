@@ -215,7 +215,7 @@ class TestDDMService(unittest.TestCase):
         for i in range(num_descriptors):
             assigned_hsdirs.append([0])
 
-        # determine which hsdir belong to which descriptor
+        # determine which hsdir belongs to which descriptor
         i = 0
         while len(available_hsdirs) > 0:
             assigned_hsdirs[i].append(available_hsdirs[0])
@@ -243,7 +243,7 @@ class TestDDMService(unittest.TestCase):
             except AssertionError:
                 raise
 
-    def test_too_may_instances(self, num_instances=params.MAX_INSTANCES + 10):
+    def test_too_many_instances(self, num_instances=params.MAX_INSTANCES + 10):
         """
         test functionality of added log message
         """
@@ -254,6 +254,6 @@ class TestDDMService(unittest.TestCase):
             i += 1
 
         with self.assertRaises(SystemExit):
-            self.assertRaises(logger.error, create_test_config_file_v3(tmppath="<path_to_empty_config.yaml>",
+            self.assertRaises(logger.error, create_test_config_file_v3(tmppath=".",
                                                                        instance_address=list_instances,
                                                                        num_instances=num_instances))
